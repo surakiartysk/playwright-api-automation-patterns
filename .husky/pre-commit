@@ -1,0 +1,7 @@
+# Formatting and lint on staged files only — under a second in practice.
+#
+# Deliberately not the test suite. A pre-commit hook that runs everything
+# gets bypassed with --no-verify the first time someone is in a hurry, and a
+# hook people routinely skip is worse than no hook. Correctness is CI's job;
+# this one only keeps mechanical noise out of the diff.
+pnpm exec lint-staged

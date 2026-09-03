@@ -1,0 +1,251 @@
+name: On-demand
+
+# Run a chosen slice of the suite, without pushing anything.
+#
+# Two ways in:
+#
+# 1. `workflow_dispatch` — a human picks a style and a scope from the Actions
+#    tab. What you reach for when triaging "is this service red, or is it just
+#    that one spec?".
+#
+# 2. `repository_dispatch` — another system asks for a run. In a real setup
+#    this is the deploy pipeline saying "SIT is up, verify it":
+#
+#      curl -X POST -H "Accept: application/vnd.github+json" \
+#        -H "Authorization: Bearer $TOKEN" \
+#        https://api.github.com/repos/<owner>/<repo>/dispatches \
+#        -d '{"event_type":"run-tests","client_payload":{"scope":"regression"}}'
+#
+#    Here it has nothing external to point at — the mock ships with the repo —
+#    so it exists to show the wiring, and it is honest about that.
+on:
+  workflow_dispatch:
+    inputs:
+      style:
+        description: 'Which package to run'
+        required: true
+        default: 'both'
+        type: choice
+        options: [both, functional-style, class-style]
+      scope:
+        description: 'Tag to filter by (without @). "all" runs everything.'
+        required: true
+        default: 'smoke'
+        type: choice
+        # Keep in sync with the tags used in specs.
+        options: [all, smoke, isolated, flow, items, reservations, maintenance-logs, core]
+      workers:
+        description: 'Parallel workers — drop to 1 to investigate a suspected race'
+        required: false
+        default: '4'
+        type: string
+      run_id:
+        description: 'Caller run id. Set by the dashboard; leave blank when running by hand.'
+        required: false
+        default: ''
+        type: string
+
+  repository_dispatch:
+    types: [run-tests]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false # an explicit request should not cancel another
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    name: ${{ github.event.inputs.style || 'both' }} / @${{ github.event.inputs.scope || 'smoke' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Inputs arrive from two shapes — a form, or a payload — so they are
+      # normalised once here rather than in every step below.
+      - name: Resolve inputs
+        id: opts
+        run: |
+          STYLE="${{ github.event.inputs.style || github.event.client_payload.style || 'both' }}"
+          SCOPE="${{ github.event.inputs.scope || github.event.client_payload.scope || 'smoke' }}"
+          WORKERS="${{ github.event.inputs.workers || github.event.client_payload.workers || '4' }}"
+          RUN_ID="${{ github.event.inputs.run_id || github.event.client_payload.run_id || '' }}"
+
+          if [ "$SCOPE" = "all" ]; then GREP=""; else GREP="--grep @$SCOPE"; fi
+
+          case "$STYLE" in
+            both) FILTER="-r" ;;
+            *)    FILTER="--filter @gear-rental/$STYLE" ;;
+          esac
+
+          echo "grep=$GREP"       >> "$GITHUB_OUTPUT"
+          echo "filter=$FILTER"   >> "$GITHUB_OUTPUT"
+          echo "workers=$WORKERS" >> "$GITHUB_OUTPUT"
+          echo "run_id=$RUN_ID"   >> "$GITHUB_OUTPUT"
+          echo "Running $STYLE with scope @$SCOPE on $WORKERS workers"
+
+      - name: Run tests
+        id: run
+        # A red suite must still reach the callback below — a run that fails
+        # without reporting leaves the caller's dashboard stuck on "running"
+        # forever. The verdict is carried in an output and re-raised at the end.
+        #
+        # PLAYWRIGHT_JSON_OUTPUT_NAME makes the json reporter write to a file
+        # instead of stdout, which is what the next step reads.
+        #
+        # `allure-playwright` is named explicitly rather than left to the
+        # config. `--reporter` *replaces* the config's list rather than adding
+        # to it, so the earlier `list,json` here silently switched off the
+        # `html` and `allure-playwright` reporters playwright.config.ts
+        # declares — the report this job claimed to upload was never generated.
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+        run: |
+          pnpm ${{ steps.opts.outputs.filter }} exec playwright test \
+            ${{ steps.opts.outputs.grep }} \
+            --workers=${{ steps.opts.outputs.workers }} \
+            --reporter=list,json,allure-playwright || echo "failed=true" >> "$GITHUB_OUTPUT"
+
+      # Totals for the callback, read from Playwright's own JSON rather than
+      # scraped from stdout.
+      - name: Summarise
+        if: always() && steps.opts.outputs.run_id != ''
+        id: totals
+        run: |
+          node -e '
+            const { readdirSync, existsSync, readFileSync } = require("fs")
+            let total = 0, passed = 0, failed = 0
+            for (const pkg of readdirSync("packages")) {
+              const f = `packages/${pkg}/results.json`
+              if (!existsSync(f)) continue
+              const walk = (suites) => {
+                for (const s of suites ?? []) {
+                  for (const spec of s.specs ?? []) {
+                    total += 1
+                    if (spec.ok) passed += 1
+                    else failed += 1
+                  }
+                  walk(s.suites)
+                }
+              }
+              walk(JSON.parse(readFileSync(f, "utf8")).suites)
+            }
+            const out = require("fs").createWriteStream(process.env.GITHUB_OUTPUT, { flags: "a" })
+            out.write(`total=${total}\npassed=${passed}\nfailed=${failed}\n`)
+          '
+
+      # Build the report the dashboard will serve.
+      #
+      # Both packages' results merge into one report, because the question this
+      # repo asks is how the two styles compare — see decision 11. Only built
+      # when a caller is waiting for it; a hand-started run reads its results
+      # from the Actions log.
+      - name: Build the Allure report
+        if: always() && steps.opts.outputs.run_id != '' && vars.DASHBOARD_WEBHOOK_URL != ''
+        run: pnpm allure
+
+      # Upload it straight into the dashboard's R2 bucket.
+      #
+      # Uploading directly rather than POSTing the bytes to the dashboard: an
+      # endpoint accepting several megabytes is a body-size limit, a parser and
+      # a signing scheme over something too big to buffer — all to reach a
+      # bucket this job can already write to with a scoped token. The token is
+      # scoped to this one bucket, so what leaks if it leaks is the ability to
+      # write reports.
+      #
+      # One PUT, because the report is built with `--single-file`. The
+      # multi-file form is ~450 objects: hundreds of round trips per run, and
+      # hundreds of individually-authorised assets to serve afterwards.
+      #
+      # `continue-on-error`: a failed upload must not fail the run or skip the
+      # callback below. A run whose numbers arrive without a report is worth
+      # more than a run the dashboard never hears about at all.
+      # The credentials are checked inside the script rather than in `if:` —
+      # the `secrets` context is not available to a step-level condition.
+      - name: Upload the report to the dashboard
+        id: upload
+        if: always() && steps.opts.outputs.run_id != '' && vars.DASHBOARD_WEBHOOK_URL != ''
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RUN_ID: ${{ steps.opts.outputs.run_id }}
+        run: node .github/scripts/upload-report.mjs allure-report/index.html "runs/$RUN_ID/index.html"
+
+      # Report the result back to whoever asked for the run.
+      #
+      # Signed over `timestamp.body`, not the body alone: a captured callback
+      # would otherwise be replayable forever. The receiving end enforces a
+      # five-minute window — see the dashboard's routes/webhook.ts.
+      #
+      # Skipped entirely when nobody asked: a hand-started run has no caller to
+      # report to, and posting to an unset URL would fail the job for no reason.
+      #
+      # Runs after the upload so `reportPath` is only claimed once the bytes
+      # are actually there — the dashboard trusts this field, and a path
+      # pointing at nothing is a report link that 404s.
+      - name: Report the result
+        if: always() && steps.opts.outputs.run_id != '' && vars.DASHBOARD_WEBHOOK_URL != ''
+        env:
+          WEBHOOK_URL: ${{ vars.DASHBOARD_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.DASHBOARD_WEBHOOK_SECRET }}
+          RUN_ID: ${{ steps.opts.outputs.run_id }}
+          STATUS: ${{ steps.run.outputs.failed == 'true' && 'failed' || 'passed' }}
+          TOTAL: ${{ steps.totals.outputs.total }}
+          PASSED: ${{ steps.totals.outputs.passed }}
+          FAILED: ${{ steps.totals.outputs.failed }}
+          REPORT_PATH: ${{ steps.upload.outcome == 'success' && format('runs/{0}/index.html', steps.opts.outputs.run_id) || '' }}
+        run: |
+          BODY=$(node -e '
+            process.stdout.write(JSON.stringify({
+              runId: process.env.RUN_ID,
+              status: process.env.STATUS,
+              total: Number(process.env.TOTAL || 0),
+              passed: Number(process.env.PASSED || 0),
+              failed: Number(process.env.FAILED || 0),
+              // Omitted when the upload did not succeed: the dashboard
+              // COALESCEs this, so leaving it out keeps whatever was there
+              // rather than claiming a report that is not.
+              ...(process.env.REPORT_PATH ? { reportPath: process.env.REPORT_PATH } : {}),
+              workflowUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+            }))
+          ')
+
+          TS=$(date +%s)
+          SIG=$(printf '%s.%s' "$TS" "$BODY" \
+            | openssl dgst -sha256 -hmac "$WEBHOOK_SECRET" \
+            | awk '{print $2}')
+
+          curl -sS --fail-with-body -X POST "$WEBHOOK_URL" \
+            -H 'Content-Type: application/json' \
+            -H "X-Webhook-Timestamp: $TS" \
+            -H "X-Webhook-Signature: $SIG" \
+            -d "$BODY"
+
+      # The job's own verdict, restored after the callback has been sent.
+      - name: Fail if the suite failed
+        if: steps.run.outputs.failed == 'true'
+        run: exit 1
+
+      # Uploaded on success too: an on-demand run is usually an investigation,
+      # and the trace is the reason you asked for it.
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: on-demand-report
+          path: packages/*/playwright-report/
+          retention-days: 14

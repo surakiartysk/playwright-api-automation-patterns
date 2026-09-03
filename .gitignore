@@ -1,0 +1,35 @@
+node_modules/
+dist/
+build/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Env — nothing here needs secrets, but never let one slip in
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Allure — all generated.
+#
+# allure-history.json is ignored too, though it is the one file that carries
+# the trend. Committing it would mean shipping a quarter-megabyte of run data
+# from whichever laptop generated it last, which is noise to a reader and
+# merge conflicts to a contributor. A real deployment keeps history in CI
+# (cached, or written back by the reporting job) rather than in the repo.
+# The json reporter, written only in CI for the on-demand callback.
+results.json
+
+allure-results/
+allure-report/
+allure-history.json

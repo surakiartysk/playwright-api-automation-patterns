@@ -1,0 +1,8 @@
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+pnpm-lock.yaml
+allure-report/
+allure-results/
+allure-history.json
