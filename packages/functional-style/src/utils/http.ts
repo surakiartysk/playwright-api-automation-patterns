@@ -1,4 +1,5 @@
 import type { APIRequestContext, APIResponse } from '@playwright/test'
+import { attachExchange } from '@utils/allure-http'
 import type { QueryParams } from '@core/types'
 
 export type HttpMethod = 'get' | 'post' | 'patch' | 'put' | 'delete'
@@ -17,7 +18,8 @@ export interface SendOptions {
  *
  * A function rather than a class: it holds no state between calls — everything
  * it needs arrives as an argument. Funnelling every request through here means
- * debug logging, param handling and timing exist once instead of per service.
+ * debug logging, param handling, timing and the report attachments exist once
+ * instead of per service.
  */
 export async function sendRequest(
   request: APIRequestContext,
@@ -30,9 +32,15 @@ export async function sendRequest(
     console.log(`→ ${method.toUpperCase()} ${url}`, data ? JSON.stringify(data) : '')
   }
 
+  const sentHeaders = {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+    ...headers,
+  }
+
   const startedAt = performance.now()
   const response = await request[method](url, {
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...headers },
+    headers: sentHeaders,
     ...(data === undefined ? {} : { data }),
   })
   const elapsedMs = Math.round(performance.now() - startedAt)
@@ -40,6 +48,15 @@ export async function sendRequest(
   if (debug) {
     console.log(`← ${response.status()} ${url} (${elapsedMs}ms)`)
   }
+
+  await attachExchange({
+    method,
+    url,
+    requestHeaders: sentHeaders,
+    requestBody: data,
+    response,
+    elapsedMs,
+  })
 
   return { response, elapsedMs }
 }
