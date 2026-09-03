@@ -1,5 +1,6 @@
 import type { APIRequestContext, APIResponse } from '@playwright/test'
 import { test } from '@playwright/test'
+import { attachExchange } from '@support/allure-http'
 import type { ApiConfig, QueryParams } from './types'
 
 /**
@@ -51,15 +52,30 @@ export class HttpClient {
         if (value !== undefined && value !== null) query.append(key, String(value))
       }
       const suffix = query.toString() ? `?${query.toString()}` : ''
+      const url = `${this.url(path)}${suffix}`
+      const headers = this.headers()
 
       if (this.config.debug) {
-        console.log(`→ ${method.toUpperCase()} ${this.url(path)}${suffix}`)
+        console.log(`→ ${method.toUpperCase()} ${url}`)
       }
 
-      return this.request[method](`${this.url(path)}${suffix}`, {
-        headers: this.headers(),
+      const startedAt = performance.now()
+      const response = await this.request[method](url, {
+        headers,
         ...(options.data === undefined ? {} : { data: options.data }),
       })
+      const elapsedMs = Math.round(performance.now() - startedAt)
+
+      await attachExchange({
+        method,
+        url,
+        requestHeaders: headers,
+        requestBody: options.data,
+        response,
+        elapsedMs,
+      })
+
+      return response
     })
   }
 
