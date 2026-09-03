@@ -97,14 +97,23 @@ server-side, authenticates people separately, and applies the per-role rules
 GitHub cannot — which branches, how many workers, and whether runs are open
 right now. No developer ever holds a credential that can reach Actions.
 
+**A pipeline** is the case that does want a key, and it is a different key. Not
+a GitHub token handed to a developer, but one the dashboard issues and whose
+authority it defines: scoped to a service and a branch, revocable in one place,
+and attributable in the run history. A deploy job then verifies its own
+environment the moment it finishes, with nobody watching. That is designed but
+not built — the shape, and the reasons it is a credential system rather than a
+convenience, are in the dashboard's
+[decision 15](https://github.com/surakiartysk/playwright-run-dashboard/blob/main/docs/decisions.md#15-machine-keys-the-dashboard-issues-not-github-tokens-it-hands-out).
+
 **Scheduled runs** need no key at all: `scheduled.yml` runs weekly on cron, and
 carries a `workflow_dispatch` trigger so the same job can be started by hand
 without waiting for Monday. It exists to catch decay rather than regressions —
 see the reasoning in that file.
 
-So the honest summary of the three: cron for decay, the dashboard for people,
-and `repository_dispatch` with a scoped token for other systems. Only the last
-one involves handing out a key, and it should be issued to a machine.
+So the honest summary: cron for decay, the dashboard for people, and an issued
+key for machines — with `repository_dispatch` plus a scoped GitHub token as the
+one-caller version that works today, before a key system is worth its weight.
 
 ## What this repo does _not_ have, and where it lives instead
 
