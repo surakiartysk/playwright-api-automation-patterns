@@ -63,6 +63,49 @@ asked during triage:
 Anyone with repository access can run it from the Actions tab. No local setup,
 no asking QA to run something.
 
+### Triggering it from somewhere else
+
+Two doors, and which one you want depends on who is knocking.
+
+**A person, or anything that can hold a GitHub token** uses the API directly.
+`repository_dispatch` is what `on-demand.yml` already listens for:
+
+```bash
+curl -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  https://api.github.com/repos/<owner>/<repo>/dispatches \
+  -d '{"event_type":"run-tests","client_payload":{"scope":"regression"}}'
+```
+
+That token needs `actions: write` on this repository, which is the problem with
+handing it to people. A fine-grained PAT scoped to one repository is the least
+bad version, and it is still a credential that can start jobs, read Actions
+logs, and outlive the person's need for it. It suits a _system_ — a deploy
+pipeline, a release script — where the token lives in that system's secret
+store and rotates with it.
+
+**A developer** should not be holding one. The reason is not trust, it is
+blast radius and revocation: a token per person is a token per person to
+inventory, rotate and remove at offboarding, and GitHub's own scopes cannot
+express "may run smoke against `main`, and nothing else". The moment you want
+that sentence enforced, you need something between the person and GitHub that
+holds the single token and applies its own rules to each request.
+
+That something is the companion dashboard below. It holds one `GITHUB_TOKEN`
+server-side, authenticates people separately, and applies the per-role rules
+GitHub cannot — which branches, how many workers, and whether runs are open
+right now. No developer ever holds a credential that can reach Actions.
+
+**Scheduled runs** need no key at all: `scheduled.yml` runs weekly on cron, and
+carries a `workflow_dispatch` trigger so the same job can be started by hand
+without waiting for Monday. It exists to catch decay rather than regressions —
+see the reasoning in that file.
+
+So the honest summary of the three: cron for decay, the dashboard for people,
+and `repository_dispatch` with a scoped token for other systems. Only the last
+one involves handing out a key, and it should be issued to a machine.
+
 ## What this repo does _not_ have, and where it lives instead
 
 Being explicit, because the boundary is the interesting part.
@@ -91,7 +134,7 @@ It is published as a **companion repository** instead, built the same way and
 for the same reason:
 
 **`playwright-run-dashboard`** — the trigger →
-run → report flow, with three roles and the authorisation that makes
+run → report flow, with four roles and the authorisation that makes
 self-service safe. Its interesting question is not the Run button but _who may
 run what, against which branch, and who may then see the result_.
 
