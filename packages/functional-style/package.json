@@ -1,0 +1,26 @@
+{
+  "name": "@gear-rental/functional-style",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hybrid approach: classes for the API Object Model (which carries state), functions and fixtures for everything else.",
+  "scripts": {
+    "pretest": "node -e \"require('fs').rmSync('allure-results',{recursive:true,force:true})\"",
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:debug": "DEBUG_API=true playwright test",
+    "report": "playwright show-report",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gear-rental/shared-contract": "workspace:*",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.2",
+    "allure-js-commons": "^3.10.2",
+    "allure-playwright": "^3.10.2",
+    "typescript": "^5.7.2"
+  }
+}

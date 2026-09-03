@@ -1,0 +1,72 @@
+name: PR gate
+
+# The fast lane. Every pull request pays this cost, so it buys the checks that
+# catch the most per second: static analysis, the IP tripwire, and smoke.
+#
+# The full suite runs on merge (ci.yml) rather than here. That is a deliberate
+# trade — a gate slow enough to context-switch away from stops being a gate and
+# becomes something people merge around.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'tsconfig*.json'
+      - 'eslint.config.js'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: Static checks + smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # First, and on its own step, so a leak is unmistakable in the log rather
+      # than buried in a test failure.
+      - name: Check for source-material vocabulary
+        run: pnpm check:leak
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      # Smoke only — the critical paths through both styles. The rest runs on
+      # merge.
+      - name: Smoke tests
+        run: pnpm test:smoke
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-gate-report
+          path: packages/*/playwright-report/
+          retention-days: 7

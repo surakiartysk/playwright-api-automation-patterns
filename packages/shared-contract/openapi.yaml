@@ -1,0 +1,773 @@
+openapi: 3.1.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Contract-first: this file is written BEFORE the mock and before any test.
+# The mock (packages/shared-contract/mock) implements it; both test suites
+# (functional-style, class-style) assert against it. When they disagree, this
+# file is the arbiter.
+#
+# Fidelity is deliberate, not accidental — see docs/decisions.md. The mock
+# enforces exactly what the tests assert (state transitions, field validation,
+# role visibility, cross-service side effects) and nothing more. Persistence,
+# real crypto, rate limiting and pricing math are intentionally out of scope.
+# ─────────────────────────────────────────────────────────────────────────────
+
+info:
+  title: Gear Rental API
+  version: 1.0.0
+  description: |
+    A fictional outdoor-equipment rental back office, invented as a test subject
+    for this repository. Any resemblance to a real system is incidental — the
+    domain exists to give the test architecture something non-trivial to hold:
+    a real state machine, role-gated endpoints, and a cross-service side effect.
+  license:
+    name: MIT
+
+servers:
+  - url: http://127.0.0.1:{port}/api/v1
+    description: In-process mock (started by Playwright's webServer)
+    variables:
+      port:
+        default: '4010'
+
+tags:
+  - name: auth
+    description: Session issuance. Infrastructure for the other services, not a showcase.
+  - name: items
+    description: Rentable gear. Baseline CRUD — the reference implementation.
+  - name: reservations
+    description: Rental lifecycle. The state machine.
+  - name: maintenance-logs
+    description: Post-checkout servicing records. Exists only as a consequence of a reservation.
+
+paths:
+  # ── auth ───────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Exchange credentials for a bearer token
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Session issued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  # ── items ──────────────────────────────────────────────────────────────────
+  /items:
+    get:
+      tags: [items]
+      summary: List items
+      operationId: listItems
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - {
+            name: pageSize,
+            in: query,
+            schema: { type: integer, minimum: 1, maximum: 100, default: 20 },
+          }
+        - { name: category, in: query, schema: { $ref: '#/components/schemas/ItemCategory' } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/ItemStatus' } }
+        # Exact-match lookup. A list endpoint with no way to ask for one known
+        # row forces every caller to page through everything and filter locally,
+        # which breaks as soon as the collection outgrows one page.
+        - { name: sku, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: A page of items
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ItemPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [items]
+      summary: Create an item
+      description: Requires `staff` or `admin`. A `member` receives 403.
+      operationId: createItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItemRequest'
+      responses:
+        '201':
+          description: Item created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Item'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: An item with this `sku` already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /items/{itemId}:
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [items]
+      summary: Get one item
+      operationId: getItemById
+      responses:
+        '200':
+          description: The item
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Item'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [items]
+      summary: Update an item
+      description: Requires `staff` or `admin`.
+      operationId: updateItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItemRequest'
+      responses:
+        '200':
+          description: Item updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Item'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+    delete:
+      tags: [items]
+      summary: Retire an item
+      description: |
+        Soft delete — the item moves to `RETIRED` and stops appearing in default
+        listings. Requires `admin`. An item currently reserved cannot be retired.
+      operationId: retireItem
+      responses:
+        '200':
+          description: Item retired
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/IdOnly'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item is reserved or checked out and cannot be retired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  # ── reservations (Phase 2 — contract defined now so the shape is fixed) ─────
+  /reservations:
+    post:
+      tags: [reservations]
+      summary: Open a reservation in DRAFT
+      operationId: createReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReservationRequest'
+      responses:
+        '201':
+          description: Reservation created in `DRAFT`
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Reservation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Item is not `AVAILABLE`
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  /reservations/{reservationId}:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [reservations]
+      summary: Get one reservation
+      operationId: getReservationById
+      responses:
+        '200':
+          description: The reservation
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Reservation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /reservations/{reservationId}/transitions:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [reservations]
+      summary: Drive the reservation state machine
+      description: |
+        Applies one transition. Legal edges only — anything else is a 409 with
+        code `RSV_ILLEGAL_TRANSITION` and a body naming both the current state
+        and the attempted target. This endpoint is the single mutation point for
+        reservation state; there is no "set status" escape hatch, by design.
+
+        ```
+        DRAFT ──confirm──> CONFIRMED ──check_out──> CHECKED_OUT ──return──> RETURNED ──close──> CLOSED
+          │                    │
+          └──cancel───────────-┘──> CANCELLED
+        ```
+
+        `cancel` is legal only from `DRAFT` or `CONFIRMED`. `CLOSED` and
+        `CANCELLED` are terminal — every transition out of them is rejected.
+
+        Role gate: `confirm`, `check_out`, `return` and `close` require `staff`
+        or `admin`; `cancel` is additionally allowed to the `member` who owns
+        the reservation.
+
+        Side effect: a successful `check_out` creates the maintenance log for
+        this reservation (see `/maintenance-logs`). That side effect is the
+        cross-service seam the composed provisioner depends on.
+      operationId: transitionReservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransitionRequest'
+      responses:
+        '200':
+          description: Transition applied
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/Reservation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Illegal transition from the current state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+              example:
+                success: false
+                code: RSV_ILLEGAL_TRANSITION
+                message: "cannot 'check_out' a reservation in state 'DRAFT'"
+                data:
+                  currentState: DRAFT
+                  attempted: check_out
+                  allowed: [confirm, cancel]
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  # ── maintenance logs (Phase 2) ─────────────────────────────────────────────
+  /maintenance-logs:
+    get:
+      tags: [maintenance-logs]
+      summary: List maintenance logs
+      description: |
+        A log row is never created directly — it appears as a side effect of a
+        reservation reaching `CHECKED_OUT`. There is deliberately no POST here:
+        a test that wants a log must drive a reservation to produce one, which
+        is what makes the composed provisioner necessary rather than decorative.
+      operationId: listMaintenanceLogs
+      parameters:
+        - { name: reservationId, in: query, schema: { type: string } }
+        - { name: itemId, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { $ref: '#/components/schemas/MaintenanceState' } }
+      responses:
+        '200':
+          description: Matching logs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MaintenanceLogPage'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /maintenance-logs/{logId}/resolve:
+    parameters:
+      - name: logId
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [maintenance-logs]
+      summary: Resolve an open maintenance log
+      description: Requires `staff` or `admin`. Only an `OPEN` log can be resolved.
+      operationId: resolveMaintenanceLog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveMaintenanceRequest'
+      responses:
+        '200':
+          description: Log resolved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/MaintenanceLog'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Log is already resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+
+  # ── health ─────────────────────────────────────────────────────────────────
+  /health:
+    get:
+      tags: [auth]
+      summary: Liveness probe used to warm the connection before a run
+      operationId: health
+      security: []
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [status]
+                        properties:
+                          status: { type: string, const: ok }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Missing, malformed, or unknown bearer token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            code: AUTH_UNAUTHORIZED
+            message: authentication required
+            data: null
+    Forbidden:
+      description: Authenticated, but the role may not perform this action
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            code: AUTH_FORBIDDEN
+            message: role 'member' may not perform this action
+            data: null
+    NotFound:
+      description: No such resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationFailed:
+      description: |
+        The payload failed validation. `data.fields` names every offending field —
+        tests assert on the field name, not on the human-readable message, so the
+        message stays free to change.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            code: VALIDATION_FAILED
+            message: request validation failed
+            data:
+              fields:
+                - field: name
+                  rule: required
+                  message: name is required
+
+  schemas:
+    # ── envelopes ────────────────────────────────────────────────────────────
+    # Every response on every endpoint wears one of these two. That uniformity
+    # is what lets a single BaseValidator make the structural assertions once
+    # instead of each service re-deriving them.
+    SuccessEnvelope:
+      type: object
+      required: [success, code, message, data]
+      properties:
+        success: { type: boolean, const: true }
+        code: { type: string, const: OK, description: 'Business code — `OK` on every success' }
+        message: { type: string }
+        data:
+          description: Payload — shape varies per endpoint
+      additionalProperties: false
+
+    ErrorEnvelope:
+      type: object
+      required: [success, code, message]
+      properties:
+        success: { type: boolean, const: false }
+        code:
+          type: string
+          description: |
+            Stable, machine-readable business code. Tests assert on this, never
+            on `message`. Codes are namespaced by service (`ITM_`, `RSV_`, `MNT_`)
+            except the cross-cutting `AUTH_*` / `VALIDATION_FAILED` / `NOT_FOUND`.
+        message: { type: string, description: 'Human-readable. Free to change; never asserted on.' }
+        data:
+          description: |
+            Optional detail. Present-but-null is normal on errors that carry no
+            detail; when present it is an object (e.g. `fields` on a 422, or the
+            state triple on an illegal transition).
+          nullable: true
+      additionalProperties: false
+
+    Pagination:
+      type: object
+      required: [page, pageSize, total, totalPages]
+      properties:
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+      additionalProperties: false
+
+    IdOnly:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+      additionalProperties: false
+
+    # ── auth ─────────────────────────────────────────────────────────────────
+    Role:
+      type: string
+      enum: [member, staff, admin]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+      additionalProperties: false
+
+    Session:
+      type: object
+      required: [token, expiresAt, actor]
+      properties:
+        token:
+          type: string
+          description: |
+            Opaque bearer token. The mock issues a decodable fake rather than a
+            signed JWT — real crypto buys these tests nothing.
+        expiresAt: { type: string, format: date-time }
+        actor:
+          type: object
+          required: [id, email, role]
+          properties:
+            id: { type: string }
+            email: { type: string, format: email }
+            role: { $ref: '#/components/schemas/Role' }
+          additionalProperties: false
+      additionalProperties: false
+
+    # ── items ────────────────────────────────────────────────────────────────
+    ItemCategory:
+      type: string
+      enum: [tent, backpack, climbing, cooking, navigation]
+
+    ItemStatus:
+      type: string
+      enum: [AVAILABLE, RESERVED, CHECKED_OUT, MAINTENANCE, RETIRED]
+
+    Item:
+      type: object
+      required:
+        [id, sku, name, category, status, dailyRateCents, conditionNote, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        sku:
+          type: string
+          pattern: '^[A-Z]{3}-[0-9]{4}$'
+          description: 'Unique. Format `ABC-1234`.'
+        name: { type: string, minLength: 3, maxLength: 80 }
+        category: { $ref: '#/components/schemas/ItemCategory' }
+        status: { $ref: '#/components/schemas/ItemStatus' }
+        dailyRateCents:
+          type: integer
+          minimum: 0
+          description: 'Minor units, to keep money off floating point.'
+        conditionNote: { type: string, maxLength: 280 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    ItemPage:
+      type: object
+      required: [items, pagination]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Item' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+      additionalProperties: false
+
+    CreateItemRequest:
+      type: object
+      required: [sku, name, category, dailyRateCents]
+      properties:
+        sku: { type: string, pattern: '^[A-Z]{3}-[0-9]{4}$' }
+        name:
+          type: string
+          minLength: 3
+          maxLength: 80
+          description: |
+            Counted in characters, **not trimmed**. A whitespace-only name of
+            three or more characters is accepted.
+
+            Stated because it was not, and the omission was found by probing
+            rather than by reading: `minLength` alone leaves absent, `null`,
+            `""` and `"   "` as four separate cases that a reader has to guess
+            at. Three of them are refused; the fourth is not. Callers that want
+            a non-blank name must say so, and the tests assert this behaviour
+            so it cannot change silently.
+        category: { $ref: '#/components/schemas/ItemCategory' }
+        dailyRateCents: { type: integer, minimum: 0 }
+        conditionNote: { type: string, maxLength: 280 }
+      additionalProperties: false
+
+    UpdateItemRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 3, maxLength: 80 }
+        category: { $ref: '#/components/schemas/ItemCategory' }
+        dailyRateCents: { type: integer, minimum: 0 }
+        conditionNote: { type: string, maxLength: 280 }
+      additionalProperties: false
+
+    # ── reservations ─────────────────────────────────────────────────────────
+    ReservationState:
+      type: string
+      enum: [DRAFT, CONFIRMED, CHECKED_OUT, RETURNED, CLOSED, CANCELLED]
+
+    TransitionAction:
+      type: string
+      enum: [confirm, check_out, return, close, cancel]
+
+    Reservation:
+      type: object
+      required: [id, itemId, memberId, state, startDate, endDate, history, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        itemId: { type: string }
+        memberId: { type: string }
+        state: { $ref: '#/components/schemas/ReservationState' }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        history:
+          type: array
+          description: 'Append-only audit of applied transitions — flow tests assert on this.'
+          items:
+            type: object
+            required: [from, to, action, at]
+            properties:
+              from: { $ref: '#/components/schemas/ReservationState' }
+              to: { $ref: '#/components/schemas/ReservationState' }
+              action: { $ref: '#/components/schemas/TransitionAction' }
+              at: { type: string, format: date-time }
+            additionalProperties: false
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      additionalProperties: false
+
+    CreateReservationRequest:
+      type: object
+      required: [itemId, startDate, endDate]
+      properties:
+        itemId: { type: string }
+        startDate: { type: string, format: date }
+        endDate:
+          type: string
+          format: date
+          description: 'Must be on or after `startDate`, else 422 naming `endDate`.'
+      additionalProperties: false
+
+    TransitionRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { $ref: '#/components/schemas/TransitionAction' }
+        note: { type: string, maxLength: 280 }
+      additionalProperties: false
+
+    # ── maintenance logs ─────────────────────────────────────────────────────
+    MaintenanceState:
+      type: string
+      enum: [OPEN, RESOLVED]
+
+    MaintenanceLog:
+      type: object
+      required: [id, reservationId, itemId, state, openedAt, resolvedAt, resolutionNote]
+      properties:
+        id: { type: string }
+        reservationId: { type: string }
+        itemId: { type: string }
+        state: { $ref: '#/components/schemas/MaintenanceState' }
+        openedAt: { type: string, format: date-time }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+        resolutionNote: { type: string, nullable: true }
+      additionalProperties: false
+
+    MaintenanceLogPage:
+      type: object
+      required: [logs, pagination]
+      properties:
+        logs:
+          type: array
+          items: { $ref: '#/components/schemas/MaintenanceLog' }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+      additionalProperties: false
+
+    ResolveMaintenanceRequest:
+      type: object
+      required: [resolutionNote]
+      properties:
+        resolutionNote: { type: string, minLength: 3, maxLength: 280 }
+      additionalProperties: false
+
+security:
+  - bearerAuth: []

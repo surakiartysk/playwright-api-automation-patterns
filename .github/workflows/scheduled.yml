@@ -1,0 +1,107 @@
+name: Scheduled
+
+# A weekly run against nothing having changed.
+#
+# The point of a schedule is not to catch regressions — CI already does that on
+# merge. It catches *decay*: a transitive dependency that shifted, a runner
+# image that moved, a test that was always time-dependent and finally noticed.
+#
+# Reservation dates here are computed relative to today precisely because a
+# hardcoded date is the classic thing a scheduled run finds six months later.
+#
+# Weekly, not nightly, and deliberately so. A daily job on a repo that may go
+# untouched for weeks trains its owner to ignore the failure mail, and a
+# notification nobody reads is worse than none. The upstream project this
+# approach comes from ended up pausing its nightly for exactly that reason.
+on:
+  schedule:
+    # Mondays, 01:00 UTC — a failure is waiting at the start of the week rather
+    # than arriving during it.
+    - cron: '0 1 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write # to raise a ticket when the scheduled run breaks
+
+jobs:
+  full-suite:
+    name: Full suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Deliberately NOT --frozen-lockfile.
+      #
+      # Every other workflow pins the lockfile so results are reproducible. This
+      # one resolves fresh, because catching a dependency that broke us is the
+      # entire reason the job exists. It is the one place a surprise is useful.
+      - name: Install dependencies (unpinned)
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Verify
+        run: pnpm verify
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scheduled-report
+          path: packages/*/playwright-report/
+          retention-days: 30
+
+      # Nobody watches a scheduled run. Without this the failure is an email
+      # that gets filtered, so it becomes a tracked issue instead — and an
+      # existing open one is updated rather than duplicated week after week.
+      - name: Open an issue on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'Scheduled run failed'
+            const body = [
+              `The weekly scheduled run failed on \`${context.sha.slice(0, 7)}\`.`,
+              '',
+              'Nothing in the repo changed, so this points at the environment rather',
+              'than at a commit — a dependency that moved, a runner image change, or',
+              'a test that was quietly time-dependent.',
+              '',
+              `[Run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`,
+            ].join('\n')
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'scheduled-failure',
+            })
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                body,
+              })
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['scheduled-failure'],
+              })
+            }

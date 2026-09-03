@@ -1,0 +1,78 @@
+name: CI
+
+# The full run. Everything the PR gate skipped, on the branch that matters.
+#
+# Also the only place the Node matrix runs: a version incompatibility is worth
+# catching, but not worth paying for on every push to a feature branch.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false # one version failing should not hide the other's result
+      matrix:
+        node: [22, 24]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # `verify` is the same command developers run locally — one definition of
+      # "green", so CI cannot drift from the laptop.
+      - name: Verify
+        run: pnpm verify
+
+      - name: Upload report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report-node-${{ matrix.node }}
+          path: packages/*/playwright-report/
+          retention-days: 7
+
+  # Both suites must catch the same defects, or the comparison this repo is
+  # built on is not fair. Cheap to assert, and it fails loudly if someone adds
+  # a behaviour to one package and forgets the other.
+  parity:
+    name: Both suites cover the same behaviours
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Compare test counts
+        run: pnpm check:parity
