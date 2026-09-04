@@ -1,6 +1,6 @@
 {
   "name": "@gear-rental/class-style",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "The class-first comparison: the same three services against the same contract, with client, validator, and data builder grouped into one cohesive test context per service.",

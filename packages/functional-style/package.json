@@ -1,6 +1,6 @@
 {
   "name": "@gear-rental/functional-style",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "Hybrid approach: classes for the API Object Model (which carries state), functions and fixtures for everything else.",

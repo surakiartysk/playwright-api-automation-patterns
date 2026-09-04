@@ -208,7 +208,18 @@ jobs:
           PASSED: ${{ steps.totals.outputs.passed }}
           FAILED: ${{ steps.totals.outputs.failed }}
           REPORT_PATH: ${{ steps.upload.outcome == 'success' && format('runs/{0}/index.html', steps.opts.outputs.run_id) || '' }}
+          # What was actually run, so a result can be traced back to a tree.
+          #
+          # The version alone is not enough: it moves on release, and most runs
+          # happen between releases, so every run in a fortnight would claim the
+          # same one. The sha is the precise answer and the version is the
+          # readable one — they answer "which commit?" and "which release?",
+          # which are different questions.
+          SUITE_SHA: ${{ github.sha }}
         run: |
+          SUITE_VERSION=$(node -p "require('./package.json').version")
+          export SUITE_VERSION
+
           BODY=$(node -e '
             process.stdout.write(JSON.stringify({
               runId: process.env.RUN_ID,
@@ -216,6 +227,8 @@ jobs:
               total: Number(process.env.TOTAL || 0),
               passed: Number(process.env.PASSED || 0),
               failed: Number(process.env.FAILED || 0),
+              suiteVersion: process.env.SUITE_VERSION || undefined,
+              suiteSha: process.env.SUITE_SHA || undefined,
               // Omitted when the upload did not succeed: the dashboard
               // COALESCEs this, so leaving it out keeps whatever was there
               // rather than claiming a report that is not.
