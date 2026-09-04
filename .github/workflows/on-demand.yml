@@ -86,8 +86,24 @@ jobs:
 
           if [ "$SCOPE" = "all" ]; then GREP=""; else GREP="--grep @$SCOPE"; fi
 
+          # `both` names the two test packages rather than using `-r`.
+          #
+          # `-r` runs in EVERY workspace package, and `shared-contract` holds
+          # the OpenAPI contract and the mock — it has no Playwright, so
+          # `pnpm -r exec playwright` aborts the whole run with
+          # "Command \"playwright\" not found" before a single test executes.
+          # The dashboard then records a run with total: 0 and no report.
+          #
+          # Not hypothetical: this is what a real dispatch did once the
+          # dashboard started sending `style: both`. ci.yml never hit it
+          # because it targets the two packages by name.
+          #
+          # `--workspace-concurrency=1` for the same reason `pnpm test` uses
+          # `--sequential`: both packages start their own mock on port 4010, so
+          # running them at once fails the second with EADDRINUSE before any
+          # test runs. (`exec` has no `--sequential`; this is its spelling.)
           case "$STYLE" in
-            both) FILTER="-r" ;;
+            both) FILTER="--workspace-concurrency=1 --filter @gear-rental/functional-style --filter @gear-rental/class-style" ;;
             *)    FILTER="--filter @gear-rental/$STYLE" ;;
           esac
 
