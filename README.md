@@ -11,6 +11,11 @@ Both cover the same behaviours, run under the same settings, and catch the same
 defects — 97 tests each, verified by mutating the mock and checking that both
 suites fail identically.
 
+**Version 1.0.0** — complete against `openapi.yaml`, the contract that arbitrates
+both packages. Every run reports this version and its commit sha back to the
+dashboard that dispatched it, so a result months old can still be traced to the
+exact tree that produced it.
+
 The interesting part is not that they pass. It is **why each is shaped the way it
 is** — start with [`docs/decisions.md`](docs/decisions.md) if you have five
 minutes and want the reasoning rather than the code, or
