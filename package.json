@@ -1,6 +1,6 @@
 {
   "name": "playwright-api-automation-patterns",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "API test automation reference — the same three services built two ways (hybrid functional vs class-first), against one shared contract.",

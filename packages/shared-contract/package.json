@@ -1,6 +1,6 @@
 {
   "name": "@gear-rental/shared-contract",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "description": "The fictional Gear Rental API: its OpenAPI contract and the in-process mock that implements it. Consumed by every test package so the only variable between them is test-code organization.",
