@@ -8,9 +8,9 @@ invites the wrong question.
 
 **This repository is a stand-in for production work I cannot show.**
 
-The original is API automation at a company, where I am the sole author: I
-started the project, designed it, and made every convention and architectural
-call in it. The QA team works in what I built. That suite is not mine to
+The original is API automation running in production, where I am the sole
+author: I started the project, designed it, and made every convention and
+architectural call in it. The QA team works in what I built. That suite is not mine to
 publish, and it should not be.
 
 So it was rebuilt here — with AI as the drafting tool, working from the
