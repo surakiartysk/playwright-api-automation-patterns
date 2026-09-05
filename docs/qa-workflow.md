@@ -101,9 +101,14 @@ right now. No developer ever holds a credential that can reach Actions.
 a GitHub token handed to a developer, but one the dashboard issues and whose
 authority it defines: scoped to a service and a branch, revocable in one place,
 and attributable in the run history. A deploy job then verifies its own
-environment the moment it finishes, with nobody watching. That is designed but
-not built — the shape, and the reasons it is a credential system rather than a
-convenience, are in the dashboard's
+environment the moment it finishes, with nobody watching.
+
+That is built. `POST /runs` accepts `Authorization: Bearer <key>` alongside a
+session, a key resolves to a role before any handler runs, and every rule the
+dashboard already had — which branches, how many workers, whether runs are open
+right now — applies to it unchanged. A key may narrow what its role allows and
+can never widen it. The reasoning, and the authorisation bug that building it
+exposed, are in the dashboard's
 [decision 15](https://github.com/surakiartysk/playwright-run-dashboard/blob/main/docs/decisions.md#15-machine-keys-the-dashboard-issues-not-github-tokens-it-hands-out).
 
 **Scheduled runs** need no key at all: `scheduled.yml` runs weekly on cron, and
@@ -111,9 +116,9 @@ carries a `workflow_dispatch` trigger so the same job can be started by hand
 without waiting for Monday. It exists to catch decay rather than regressions —
 see the reasoning in that file.
 
-So the honest summary: cron for decay, the dashboard for people, and an issued
-key for machines — with `repository_dispatch` plus a scoped GitHub token as the
-one-caller version that works today, before a key system is worth its weight.
+So the honest summary: cron for decay, the dashboard for people, and a key the
+dashboard issues for machines. `repository_dispatch` with a scoped GitHub token
+remains the way in for anything that never talks to the dashboard at all.
 
 ## What this repo does _not_ have, and where it lives instead
 
