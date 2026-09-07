@@ -69,6 +69,20 @@ for (const pkg of PACKAGES) {
     found += 1
   }
 
+  /*
+   * The prefix above renames attachment files, and each result points at its
+   * attachments by filename. Renaming one without the other left every
+   * `source` pointing at a file that no longer existed, so Allure found
+   * nothing to show and every test's Attachments tab read
+   * "no-attachments-results".
+   *
+   * That hid the request and response bodies this suite attaches on every HTTP
+   * call — the first thing anyone wants from a red run — for the whole life of
+   * the feature, while the results on disk were correct the entire time. The
+   * report was lying, not the tests.
+   */
+  repointAttachments(MERGED, pkg)
+
   dropErrorContext(MERGED, pkg)
 
   // Tags the whole package as one top-level group in the report tree.
@@ -132,6 +146,39 @@ execFileSync(
 
 console.log('\n✓ allure — report written to allure-report/')
 console.log('  open it with: pnpm allure:open\n')
+
+/**
+ * Rewrites every attachment `source` to the name the file now has.
+ *
+ * Results reference attachments by bare filename. Merging prefixes the files
+ * with their package, so the references have to move with them.
+ *
+ * @param merged - the merged results directory
+ * @param pkg - the package whose files were just prefixed
+ */
+function repointAttachments(merged, pkg) {
+  for (const entry of readdirSync(merged)) {
+    if (!entry.startsWith(`${pkg}-`) || !entry.endsWith('-result.json')) continue
+
+    const path = join(merged, entry)
+    const result = JSON.parse(readFileSync(path, 'utf8'))
+
+    const repoint = (node) => {
+      if (Array.isArray(node.attachments)) {
+        for (const attachment of node.attachments) {
+          if (attachment.source && !attachment.source.startsWith(`${pkg}-`)) {
+            attachment.source = `${pkg}-${attachment.source}`
+          }
+        }
+      }
+      // Attachments sit on steps, and steps nest, so this has to walk down.
+      for (const step of node.steps ?? []) repoint(step)
+    }
+
+    repoint(result)
+    writeFileSync(path, JSON.stringify(result))
+  }
+}
 
 /**
  * Removes Playwright's `error-context` attachment from the merged results.
