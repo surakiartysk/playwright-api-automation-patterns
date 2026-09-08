@@ -143,10 +143,16 @@ jobs:
         run: |
           node -e '
             const { readdirSync, existsSync, readFileSync } = require("fs")
-            let total = 0, passed = 0, failed = 0
+            let total = 0, passed = 0, failed = 0, duration = 0
             for (const pkg of readdirSync("packages")) {
               const f = `packages/${pkg}/results.json`
               if (!existsSync(f)) continue
+              const report = JSON.parse(readFileSync(f, "utf8"))
+              // Summed, because the two packages run one after the other here
+              // — they both bind port 4010 for their own mock, so the run is
+              // sequential and the total really is the sum. The UI suite takes
+              // the maximum instead, for exactly the opposite reason.
+              duration += Math.round(report.stats?.duration ?? 0)
               const walk = (suites) => {
                 for (const s of suites ?? []) {
                   for (const spec of s.specs ?? []) {
@@ -160,7 +166,7 @@ jobs:
               walk(JSON.parse(readFileSync(f, "utf8")).suites)
             }
             const out = require("fs").createWriteStream(process.env.GITHUB_OUTPUT, { flags: "a" })
-            out.write(`total=${total}\npassed=${passed}\nfailed=${failed}\n`)
+            out.write(`total=${total}\npassed=${passed}\nfailed=${failed}\nduration=${duration}\n`)
           '
 
       # Build the report the dashboard will serve.
@@ -223,6 +229,7 @@ jobs:
           TOTAL: ${{ steps.totals.outputs.total }}
           PASSED: ${{ steps.totals.outputs.passed }}
           FAILED: ${{ steps.totals.outputs.failed }}
+          DURATION: ${{ steps.totals.outputs.duration }}
           REPORT_PATH: ${{ steps.upload.outcome == 'success' && format('runs/{0}/index.html', steps.opts.outputs.run_id) || '' }}
           # What was actually run, so a result can be traced back to a tree.
           #
@@ -243,6 +250,7 @@ jobs:
               total: Number(process.env.TOTAL || 0),
               passed: Number(process.env.PASSED || 0),
               failed: Number(process.env.FAILED || 0),
+              ...(process.env.DURATION ? { durationMs: Number(process.env.DURATION) } : {}),
               suiteVersion: process.env.SUITE_VERSION || undefined,
               suiteSha: process.env.SUITE_SHA || undefined,
               // Omitted when the upload did not succeed: the dashboard
