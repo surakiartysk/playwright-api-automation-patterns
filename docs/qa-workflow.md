@@ -51,14 +51,20 @@ they are separate workflows rather than one with branching.
 
 ### The self-service part
 
-The **On-demand** workflow takes three inputs: which style, which tag, and how
-many workers. That combination exists because those are the three questions
-asked during triage:
+The **On-demand** workflow takes four inputs: which style, which tag, how many
+workers, and a caller's run id. The first three are the questions asked during
+triage:
 
 - _which style_ — is this a bug in the API, or in how one package tests it?
 - _which tag_ — narrow to a service, or a kind of test
 - _how many workers_ — drop to `1` to see whether a failure is a real defect or
   a race between parallel tests
+
+`run_id` is not a triage question at all: it is how a caller names the run it
+is waiting for, and it is blank when a person starts one by hand. It is
+declared here because the dashboard sends it, and GitHub rejects a dispatch
+carrying an input a workflow does not declare — see
+[the contract below](#triggering-it-from-somewhere-else).
 
 Anyone with repository access can run it from the Actions tab. No local setup,
 no asking QA to run something.
@@ -152,7 +158,21 @@ run → report flow, with four roles and the authorisation that makes
 self-service safe. Its interesting question is not the Run button but _who may
 run what, against which branch, and who may then see the result_.
 
-The two repos meet at exactly three points, and share no code:
+It dispatches **two** suites: this one, and
+`playwright-ui-automation-patterns`, which asks the same question of browser
+tests. Each meets the dashboard at the same three points described below, and
+both workflows declare the same four input names — `style`, `scope`, `workers`
+and `run_id`. That is a contract rather than a coincidence: GitHub rejects a
+dispatch carrying an input a workflow does not declare, and rejects the whole
+request rather than ignoring the extra, so a caller that branched per suite
+would be a second thing to keep in step.
+
+What differs is what the inputs _mean_. Here `scope` is a tag. In the UI suite
+it names a spec file, because those journeys are grouped by file — so
+`--grep @auth` there would match nothing, which Playwright reports as a
+**success with zero tests**.
+
+They meet at exactly three points, and share no code:
 
 1. **Dispatch.** The dashboard calls `on-demand.yml` with `run_id`, `scope`
    (the service, or a tag), `style`, and `workers`. Those are this workflow's

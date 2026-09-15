@@ -50,7 +50,7 @@ run within a minute, and CI should need no secrets.
 ```bash
 pnpm test:functional   # one package only
 pnpm test:class
-pnpm verify            # everything CI runs: format, lint, types, tests
+pnpm verify            # everything CI runs: format, lint, types, tests, parity
 ```
 
 ## Layout
@@ -101,10 +101,18 @@ without waiting on anyone. Four roles — including a `demo` role that can never
 trigger a real run, which is why its password is safe to publish — and the
 authorisation that makes self-service safe.
 
-The two meet at one point: that dashboard dispatches this repo's
-`on-demand.yml`, and this repo's workflow posts its result back to its
-`/webhook`. They share nothing else — this one stays clonable with no
-infrastructure, which is why the dashboard is not in it.
+They meet at exactly three points, and share no code: that dashboard
+dispatches this repo's `on-demand.yml`, this repo's workflow uploads its merged
+Allure report into the dashboard's storage, and then posts its result back to
+its `/webhook`. Nothing else is shared — this repo stays clonable with no
+infrastructure, which is why the dashboard is not in it. The detail is in
+[qa-workflow.md](docs/qa-workflow.md#triggering-it-from-somewhere-else).
+
+That dashboard now dispatches a **second** suite as well —
+`playwright-ui-automation-patterns`, the same question asked of browser tests —
+and it meets it at the same three points. The two suites' workflows therefore
+declare the same four inputs, because GitHub rejects a dispatch carrying an
+input a workflow does not declare.
 
 ## License
 

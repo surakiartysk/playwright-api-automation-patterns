@@ -86,7 +86,7 @@ implicit index signature that satisfies `QueryParams` without a cast.
 ## Commands
 
 ```bash
-pnpm verify        # what CI runs: format, lint, types, tests
+pnpm verify        # what CI runs: format, lint, types, tests, parity
 pnpm test          # all packages
 ```
 
