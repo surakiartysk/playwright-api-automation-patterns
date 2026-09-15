@@ -93,7 +93,7 @@ implicit index signature that satisfies `QueryParams` without a cast.
 ## Commands
 
 ```bash
-pnpm verify        # what CI runs: format, lint, types, leak check, tests
+pnpm verify        # what CI runs: format, lint, types, leak, tests, parity
 pnpm test          # all packages
 pnpm check:leak    # vocabulary tripwire alone
 ```

@@ -24,7 +24,7 @@
     "check:parity": "node scripts/check-parity.mjs",
     "allure": "node scripts/allure-report.mjs",
     "allure:open": "pnpm exec allure open allure-report",
-    "verify": "pnpm format:check && pnpm lint && pnpm type-check && pnpm check:leak && pnpm test",
+    "verify": "pnpm format:check && pnpm lint && pnpm type-check && pnpm check:leak && pnpm test && pnpm check:parity",
     "prepare": "husky"
   },
   "devDependencies": {

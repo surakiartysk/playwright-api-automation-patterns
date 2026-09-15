@@ -18,14 +18,14 @@ hooks via `prepare`.
 
 ## Running tests
 
-| Command                | Runs                                                       |
-| ---------------------- | ---------------------------------------------------------- |
-| `pnpm test`            | Both packages, full suite                                  |
-| `pnpm test:functional` | `functional-style` only                                    |
-| `pnpm test:class`      | `class-style` only                                         |
-| `pnpm test:smoke`      | `@smoke` in both — the critical paths                      |
-| `pnpm test:debug`      | Both, with HTTP logging (`DEBUG_API=true`)                 |
-| `pnpm verify`          | Everything CI runs: format, lint, types, leak check, tests |
+| Command                | Runs                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| `pnpm test`            | Both packages, full suite                                    |
+| `pnpm test:functional` | `functional-style` only                                      |
+| `pnpm test:class`      | `class-style` only                                           |
+| `pnpm test:smoke`      | `@smoke` in both — the critical paths                        |
+| `pnpm test:debug`      | Both, with HTTP logging (`DEBUG_API=true`)                   |
+| `pnpm verify`          | Everything CI runs: format, lint, types, leak, tests, parity |
 
 Inside a package, the Playwright CLI works as usual:
 
@@ -117,7 +117,10 @@ Two details worth knowing:
   dependency that broke us is the entire reason it exists.
 - **`ci` runs `check:parity`.** Both suites must cover the same number of
   behaviours, or the comparison in [docs/comparison.md](docs/comparison.md) is
-  not a fair one. This has already caught a real gap.
+  not a fair one. This has already caught a real gap. It is in `pnpm verify`
+  too — it was CI-only for a while, which made `verify` a weaker gate than the
+  phrase "everything CI runs" promised. It goes last because it shells out to
+  `playwright --list`, so it wants the install the tests have already proven.
 
 ## Adding a service
 

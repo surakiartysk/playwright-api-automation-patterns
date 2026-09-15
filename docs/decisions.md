@@ -396,9 +396,9 @@ What Allure adds that the built-in report does not:
 
 **The labels are derived, not annotated.** Tags already exist for filtering
 (`--grep @smoke`), so an auto fixture reads them and stamps the Allure labels.
-Annotating ~160 tests by hand would be a second source of truth that drifts the
-first time someone forgets one, and specs stay unaware of the reporter
-entirely.
+Annotating all 194 tests by hand — 97 in each package — would be a second
+source of truth that drifts the first time someone forgets one, and specs stay
+unaware of the reporter entirely.
 
 **Trade-off.** A dependency and a build step. The trend also needs somewhere to
 live: `allure-history.json` is ignored here rather than committed, because
