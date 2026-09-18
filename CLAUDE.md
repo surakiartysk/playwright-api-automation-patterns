@@ -30,9 +30,14 @@ being fair. Diff the test names when unsure.
 **1. Nothing from the source material.** Patterns and reasoning travelled from
 production work; code, endpoints, field names, and business rules did not. Same
 for third-party training material — licensed for study, not redistribution.
-`pnpm check:leak` enforces a vocabulary denylist on every CI run. If it fires on
-innocent code, narrow the pattern in `scripts/check-leak.mjs` — never work around
-it by renaming a variable.
+`pnpm check:leak` enforces it, and **where it runs is the point**: the
+pre-commit hook, because CI runs after the commit has reached a public
+repository, where a leaked word is in the history permanently and reverting does
+not remove it. CI runs the check too, but only its structural half — the word
+list is gitignored, so a runner never has it, and the script says so out loud
+rather than reporting a green tick for half a check. If it fires on innocent
+code, narrow the pattern in `scripts/check-leak.mjs` — never work around it by
+renaming a variable, and never with `--no-verify`.
 
 **2. Every test must be proven able to fail.** A green suite means nothing until
 you have watched it go red for the right reason. Before claiming a spec is done,
