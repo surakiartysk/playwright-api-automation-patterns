@@ -76,14 +76,23 @@ Add a tag when a query someone actually runs cannot be expressed without it.
 
 ### Local, on commit
 
-| Hook         | Runs                                              | Why                                                     |
-| ------------ | ------------------------------------------------- | ------------------------------------------------------- |
-| `pre-commit` | `lint-staged` — eslint + prettier on staged files | Under a second. Keeps mechanical noise out of the diff. |
-| `commit-msg` | `commitlint`                                      | The history is part of what this repo demonstrates.     |
+| Hook         | Runs                             | Why                                                                                         |
+| ------------ | -------------------------------- | ------------------------------------------------------------------------------------------- |
+| `pre-commit` | `lint-staged`, then `check:leak` | Under a second. Noise out of the diff, and the one layer where a leak can still be stopped. |
+| `commit-msg` | `commitlint`                     | The history is part of what this repo demonstrates.                                         |
 
 The pre-commit hook deliberately does **not** run the tests. A hook slow enough
 to be annoying gets bypassed with `--no-verify`, and a hook people routinely
 skip is worse than no hook. Correctness is CI's job.
+
+`check:leak` is the exception, and it earns the place rather than borrowing it.
+It costs about 85ms, so it does not threaten that budget — and unlike
+correctness, this is not something CI can do later. By the time CI runs, the
+commit is on a public repository and a leaked word is in its history
+permanently; reverting does not remove it, because unreachable objects stay
+fetchable and forks keep their own copy. It is also the only place the
+vocabulary half can run at all, since the word list is gitignored and a runner
+never has it.
 
 ### Commit format
 
