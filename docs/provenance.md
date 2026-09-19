@@ -57,8 +57,14 @@ bundled mock (decision 6), because the context differs.
 - Nothing from third-party training material. Course code is licensed for study,
   not redistribution; paying for a course buys attendance, not copyright.
 
-`scripts/check-leak.mjs` enforces this on every CI run rather than leaving it to
-good intentions. It carries a vocabulary denylist covering domain terms from the
+`scripts/check-leak.mjs` enforces this in the pre-commit hook rather than leaving
+it to good intentions, and where it runs is the point: CI runs after the commit
+has reached a public repository, where a leaked word is in the history
+permanently. CI runs the check too, but only its structural half — the word list
+is gitignored, so a runner never has it, and the script says so rather than
+reporting a green tick for half a check.
+
+It carries a vocabulary denylist covering domain terms from the
 original project and identifiers from training material, plus credential and
 non-public-host patterns.
 
