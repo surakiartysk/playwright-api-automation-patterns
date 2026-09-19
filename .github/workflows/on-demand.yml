@@ -32,8 +32,10 @@ on:
         required: true
         default: 'smoke'
         type: choice
-        # Keep in sync with the tags used in specs.
-        options: [all, smoke, isolated, flow, items, reservations, maintenance-logs, core]
+        # Every tag the specs use, and nothing else — `check:parity` holds it
+        # there. A tag that is not offered here cannot be run on demand at all.
+        options:
+          [all, smoke, isolated, flow, items, reservations, maintenance-logs, core, cross-service]
       workers:
         description: 'Parallel workers — drop to 1 to investigate a suspected race'
         required: false
