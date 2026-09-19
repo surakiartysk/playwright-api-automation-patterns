@@ -56,6 +56,7 @@ is real here too. It is handled by making drift _fail a build_ instead:
 | ----------------------------------------------- | ---------------- |
 | One suite gains a behaviour, the other does not | `check:parity`   |
 | A tag documented but used by nothing            | `check:parity`   |
+| A tag used but not runnable on demand           | `check:parity`   |
 | The advertised test count going stale           | `check:parity`   |
 | Vocabulary from the source material             | `check:leak`     |
 | The contract and the mock disagreeing           | the suite itself |

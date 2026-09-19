@@ -36,8 +36,10 @@ and architectural call in it; the QA team works in what I built.
 in this repository — the domain, the contract, the mock, every test — is written
 from scratch against a fictional equipment-rental API. No employer endpoint,
 field name, business rule, or line of source appears anywhere, and
-[`scripts/check-leak.mjs`](scripts/check-leak.mjs) enforces that on every CI run
-rather than leaving it to good intentions.
+[`scripts/check-leak.mjs`](scripts/check-leak.mjs) enforces that in the
+pre-commit hook rather than leaving it to good intentions — CI would only see a
+leak once it had reached a public repository, where reverting does not remove it
+from the history.
 
 I work with AI here and at work, and not as a code generator: it proposes an
 approach, I push back on it — why not the other way, what breaks at scale, what
@@ -74,7 +76,7 @@ packages/
                        src/services/— one client + validator per service
   class-style/         src/core/    — HttpClient, ResponseAssert, ServiceContext
                        src/services/— one context per service
-scripts/check-leak.mjs vocabulary tripwire, wired into CI
+scripts/check-leak.mjs vocabulary tripwire, run in the pre-commit hook
 ```
 
 ## Which service demonstrates what

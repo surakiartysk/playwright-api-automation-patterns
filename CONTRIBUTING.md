@@ -126,7 +126,10 @@ Two details worth knowing:
   dependency that broke us is the entire reason it exists.
 - **`ci` runs `check:parity`.** Both suites must cover the same number of
   behaviours, or the comparison in [docs/comparison.md](docs/comparison.md) is
-  not a fair one. This has already caught a real gap. It is in `pnpm verify`
+  not a fair one. It also holds the documented counts, the tag table, and
+  `on-demand.yml`'s scope list against the suite itself — a tag that no
+  dropdown offers is a slice nobody can run, which is how `@cross-service`
+  went five tests deep and unreachable. This has already caught two real gaps. It is in `pnpm verify`
   too — it was CI-only for a while, which made `verify` a weaker gate than the
   phrase "everything CI runs" promised. It goes last because it shells out to
   `playwright --list`, so it wants the install the tests have already proven.
