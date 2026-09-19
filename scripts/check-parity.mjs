@@ -153,6 +153,64 @@ if (undocumented.length > 0 || unused.length > 0) {
 console.log(`✓ check:parity — ${used.size} tags, all documented and all in use`)
 
 /**
+ * A tag nobody can select is a slice nobody can run.
+ *
+ * `@cross-service` was used by five tests, named in test-strategy.md as one of
+ * the risk drivers the suite exists for, and listed in the tag table — and it
+ * was missing from `on-demand.yml`, so it could be reached neither from the
+ * Actions tab nor from the dashboard. Nothing was red: the tag worked, the
+ * docs were accurate, and the only symptom was a dropdown one entry short.
+ *
+ * The comparison is exact in both directions rather than "every tag is
+ * offered". An option that matches no tag is the worse failure — GitHub
+ * accepts the dispatch, `--grep` matches nothing, and the run reports a green
+ * nothing. The cost is that a scope which is deliberately not a tag (the UI
+ * suite slices by spec filename, for instance) would have to be excluded here
+ * by hand; this suite has no such scope, and inventing the exclusion list
+ * before there is anything to put in it would only weaken the check.
+ */
+const workflow = readFileSync(join(ROOT, '.github/workflows/on-demand.yml'), 'utf8')
+
+// The block is written by hand in a fixed shape, so a regex reads it without
+// adding a YAML parser for one line. If it stops matching, the check fails
+// loudly rather than quietly finding nothing.
+const optionsMatch = /scope:[\s\S]*?options:\s*\n?\s*\[([^\]]+)\]/.exec(workflow)
+if (!optionsMatch) {
+  console.error('\n✖ check:parity — could not read the scope options in on-demand.yml.\n')
+  console.error('The check that every tag is runnable cannot run. Fix the regex in')
+  console.error('scripts/check-parity.mjs, or the shape of the options block.\n')
+  process.exit(1)
+}
+
+// `all` is the escape hatch that runs everything, not a tag.
+const offered = new Set(
+  optionsMatch[1]
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && s !== 'all'),
+)
+const tagNames = new Set([...used].map((t) => t.slice(1)))
+
+const unrunnable = [...tagNames].filter((t) => !offered.has(t)).sort()
+const emptyScopes = [...offered].filter((t) => !tagNames.has(t)).sort()
+
+if (unrunnable.length > 0 || emptyScopes.length > 0) {
+  console.error('\n✖ check:parity — on-demand.yml and the suite disagree about scopes.\n')
+  if (unrunnable.length > 0) {
+    console.error(`  tagged but not offered: ${unrunnable.join(', ')}`)
+    console.error('  → those tests cannot be run on demand by anyone.')
+  }
+  if (emptyScopes.length > 0) {
+    console.error(`  offered but not a tag:  ${emptyScopes.join(', ')}`)
+    console.error('  → choosing one dispatches a run that matches no tests.')
+  }
+  console.error('\nUpdate the options in .github/workflows/on-demand.yml.\n')
+  process.exit(1)
+}
+
+console.log(`✓ check:parity — all ${offered.size} tags are runnable from on-demand.yml`)
+
+/**
  * The per-tag counts the strategy doc quotes must be the counts that exist.
  *
  * These are the numbers a reader checks first, because they are the easiest to
