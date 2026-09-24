@@ -31,15 +31,22 @@ second, hand-maintained format that can go stale. That is ceremony, and
 The thing an RTM protects against — an artifact drifting from its dependents —
 is real here too. It is handled by making drift _fail a build_ instead:
 
-| Drift                                           | What catches it  |
-| ----------------------------------------------- | ---------------- |
-| One suite gains a behaviour, the other does not | `check:parity`   |
-| A tag documented but used by nothing            | `check:parity`   |
-| A tag used but not runnable on demand           | `check:parity`   |
-| The advertised test count going stale           | `check:parity`   |
-| The contract and the mock disagreeing           | the suite itself |
+| Drift                                           | What catches it         |
+| ----------------------------------------------- | ----------------------- |
+| One suite gains a behaviour, the other does not | `check:parity`          |
+| A tag documented but used by nothing            | `check:parity`          |
+| A tag used but not runnable on demand           | `check:parity`          |
+| The advertised test count going stale           | `check:parity`          |
+| The measurement table in comparison.md          | `check:parity`          |
+| The contract and the mock disagreeing           | review only — see below |
 
 Same intent, without a hand-maintained artifact to keep in sync.
+
+The last row used to say "the suite itself", and that was wrong. The suite
+checks the mock against what the tests expect, not against `openapi.yaml`,
+which nothing reads — a contract edited to promise `200` where the mock
+returns `201` leaves every test green. Of the seven kinds of drift in the table,
+it is the one no build catches.
 
 **Dropped: design steps as documents.**
 
