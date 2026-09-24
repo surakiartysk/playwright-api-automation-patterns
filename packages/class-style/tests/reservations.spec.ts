@@ -182,6 +182,38 @@ test.describe('reservations', { tag: ['@reservations'] }, () => {
 
       await reservationsAsStaff.expectValidationError(response, 'action')
     })
+
+    /**
+     * A transition's note, up to 280 characters. The contract keeps it out of
+     * the history, so acceptance is the only observable edge.
+     */
+    test('should accept a transition note of exactly the maximum length', async ({
+      itemsAsStaff,
+      reservationsAsStaff,
+    }) => {
+      const { reservation } = await reservationsAsStaff.provision(itemsAsStaff)
+
+      const confirmed = await reservationsAsStaff.expectReservation(
+        await reservationsAsStaff.transition(reservation.id, 'confirm', 'n'.repeat(280)),
+      )
+
+      expect(confirmed.state).toBe('CONFIRMED')
+    })
+
+    test('should reject a transition note one character over the maximum', async ({
+      itemsAsStaff,
+      reservationsAsStaff,
+    }) => {
+      const { reservation } = await reservationsAsStaff.provision(itemsAsStaff)
+
+      const response = await reservationsAsStaff.transition(
+        reservation.id,
+        'confirm',
+        'n'.repeat(281),
+      )
+
+      await reservationsAsStaff.expectValidationError(response, 'note')
+    })
   })
 
   test.describe('lifecycle', { tag: '@flow' }, () => {

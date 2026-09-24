@@ -239,6 +239,45 @@ test.describe('items', { tag: ['@items', '@isolated'] }, () => {
 
       await itemsAsStaff.expectItem(response, 201)
     })
+
+    /**
+     * The sku pattern's own boundary. `nope-1` above breaks the case, the
+     * letter count and the digit count at once, so it pins none of them; a
+     * pattern loosened to three digits passed until these existed.
+     */
+    test('should reject a sku one digit short', async ({ itemsAsStaff }) => {
+      const response = await itemsAsStaff.create(itemsAsStaff.buildPayload({ sku: 'ABC-123' }))
+
+      const [error] = await itemsAsStaff.expectValidationError(response, 'sku')
+      expect(error?.rule).toBe('pattern')
+    })
+
+    test('should reject a sku one digit long', async ({ itemsAsStaff }) => {
+      const response = await itemsAsStaff.create(itemsAsStaff.buildPayload({ sku: 'ABC-12345' }))
+
+      const [error] = await itemsAsStaff.expectValidationError(response, 'sku')
+      expect(error?.rule).toBe('pattern')
+    })
+
+    test('should accept a condition note of exactly the maximum length', async ({
+      itemsAsStaff,
+    }) => {
+      const conditionNote = 'n'.repeat(280)
+      const response = await itemsAsStaff.create(itemsAsStaff.buildPayload({ conditionNote }))
+
+      const item = await itemsAsStaff.expectItem(response, 201)
+      expect(item.conditionNote).toBe(conditionNote)
+    })
+
+    test('should reject a condition note one character over the maximum', async ({
+      itemsAsStaff,
+    }) => {
+      const response = await itemsAsStaff.create(
+        itemsAsStaff.buildPayload({ conditionNote: 'n'.repeat(281) }),
+      )
+
+      await itemsAsStaff.expectValidationError(response, 'conditionNote')
+    })
   })
 
   test.describe('read', () => {
@@ -338,6 +377,23 @@ test.describe('items', { tag: ['@items', '@isolated'] }, () => {
       expect(page.items).toHaveLength(1)
       expect(page.pagination).toMatchObject({ page: 1, pageSize: 1 })
       expect(page.pagination.totalPages).toBe(page.pagination.total)
+    })
+
+    /**
+     * The contract's `maximum: 100`, which the API caps rather than refuses:
+     * 100 is served as asked and 101 comes back as 100, so moving the ceiling
+     * either way fails one of the pair.
+     */
+    test('should serve a pageSize of exactly the maximum', async ({ itemsAsStaff }) => {
+      const page = await itemsAsStaff.expectPage(await itemsAsStaff.list({ pageSize: 100 }))
+
+      expect(page.pagination.pageSize).toBe(100)
+    })
+
+    test('should cap a pageSize over the maximum at 100', async ({ itemsAsStaff }) => {
+      const page = await itemsAsStaff.expectPage(await itemsAsStaff.list({ pageSize: 101 }))
+
+      expect(page.pagination.pageSize).toBe(100)
     })
   })
 

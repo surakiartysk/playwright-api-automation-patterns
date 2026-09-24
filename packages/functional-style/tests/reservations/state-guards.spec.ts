@@ -128,4 +128,45 @@ test.describe('reservation state guards', { tag: ['@reservations', '@isolated'] 
     // distinction matters to a client deciding whether to retry.
     await reservationsValidator.expectValidationError(response, 'action')
   })
+
+  /**
+   * A transition may carry a note of up to 280 characters. The contract does
+   * not record it in the history, so the only observable edge is whether the
+   * request is accepted — which is what these two pin.
+   */
+  test('should accept a transition note of exactly the maximum length', async ({
+    itemsAsStaff,
+    reservationsAsStaff,
+    reservationsValidator,
+  }) => {
+    const { reservation } = await provisionReservation({
+      items: itemsAsStaff,
+      reservations: reservationsAsStaff,
+    })
+
+    const confirmed = await reservationsValidator.expectReservation(
+      await reservationsAsStaff.transition(reservation.id, 'confirm', 'n'.repeat(280)),
+    )
+
+    expect(confirmed.state).toBe('CONFIRMED')
+  })
+
+  test('should reject a transition note one character over the maximum', async ({
+    itemsAsStaff,
+    reservationsAsStaff,
+    reservationsValidator,
+  }) => {
+    const { reservation } = await provisionReservation({
+      items: itemsAsStaff,
+      reservations: reservationsAsStaff,
+    })
+
+    const response = await reservationsAsStaff.transition(
+      reservation.id,
+      'confirm',
+      'n'.repeat(281),
+    )
+
+    await reservationsValidator.expectValidationError(response, 'note')
+  })
 })
