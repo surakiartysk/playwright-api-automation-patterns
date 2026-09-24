@@ -188,9 +188,11 @@ context-sensitivity looks like.
 would need a periodic run against the live API, which this repo has no way to do.
 That is a genuine limitation, not a solved problem.
 
-**Fidelity is deliberate.** The mock enforces exactly what the tests assert:
-state transitions, validation naming the offending field, role gates,
-cross-service side effects. It skips persistence, real crypto, rate limiting,
+**Fidelity is deliberate.** The mock enforces what the tests assert: state
+transitions, validation naming the offending field, role gates, cross-service
+side effects — and, in six validation limits, more than the tests pin, which
+[test-strategy.md](test-strategy.md) lists rather than leaving "exactly" to
+stand. It skips persistence, real crypto, rate limiting,
 and pricing math. A mock drifting toward being a real backend stops being worth
 maintaining; a mock too permissive lets the best specs pass vacuously.
 

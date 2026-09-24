@@ -106,11 +106,29 @@ differently: absent and `null` fail _required_, `''` fails _minLength_, and
 `'   '` is accepted. One test for "empty name" would have covered whichever
 partition the author happened to pick and missed the interesting one.
 
-**BVA is why both sides of every limit are asserted.** A test for `name: 'ab'`
+**BVA is why both sides of a tested limit are asserted.** A test for `name: 'ab'`
 alone passes whether the limit is 3 or 30 — it only proves _something_ rejects
 short names. Pairing it with `'abc'` accepted is what pins the boundary, so an
 off-by-one in either direction fails one of the pair. `dailyRateCents` gets the
 same treatment at `0` and `-1`.
+
+Those two are the limits this suite pins. This used to say "every limit", and
+the mock enforces six more that nothing pins — each was widened in the mock and
+all 97 + 97 tests stayed green:
+
+| Limit                        | The mock enforces | Widened to, unnoticed |
+| ---------------------------- | ----------------- | --------------------- |
+| `sku` format                 | `ABC-1234`        | three or four digits  |
+| item `conditionNote`         | at most 280       | 300                   |
+| reservation `note`           | at most 280       | 300                   |
+| maintenance `resolutionNote` | at least 3        | 1                     |
+| `pageSize` on the item list  | at most 100       | 1000                  |
+| `password` at sign-in        | at least 8        | 1                     |
+
+The `sku` case is the sharpest, because a test exists: it sends `'nope-1'`,
+which fails every rule at once and so pins none of them — the partition the
+paragraph above warns about. These six are a budget decision now that they are
+written down; before, they were a gap nobody had noticed.
 
 **State transition is why `reservations` is nearly the largest service here**
 despite having the fewest fields to validate. The
@@ -176,7 +194,11 @@ A gap nobody wrote down is indistinguishable from a gap nobody noticed, so:
   is exactly the failure [rule 4](../CLAUDE.md) exists to prevent.
 - **No security scanning.** Authorization _rules_ are tested (roles, forbidden
   transitions); the transport is not, because there is none.
-- **No contract-drift detection against a live service.** `openapi.yaml` is the
-  arbiter and the mock implements it, so drift is impossible by construction —
-  and that is a property of the bundled mock, not something this suite verifies.
+- **No contract-drift detection — not even against the bundled mock.**
+  `openapi.yaml` is the arbiter by convention, and nothing reads it. Changing
+  the documented status of `POST /items` from `201` to `200` leaves all 97 + 97
+  tests passing, measured. The mock and the contract are held together by
+  review, and [decision 6](decisions.md#6-bundle-a-mock--and-when-the-same-question-has-the-opposite-answer)
+  states that cost. This used to say drift was "impossible by construction";
+  nothing constructed it.
 - **No `@acceptance` tier**, for the reason above.
