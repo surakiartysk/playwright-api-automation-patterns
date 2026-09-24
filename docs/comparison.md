@@ -36,15 +36,18 @@ retiring an in-use item          1 failed        1 failed
 
 ## What the numbers actually say
 
-Measured, not estimated:
+Measured, not estimated — and re-measured on every run. Lines are non-blank,
+non-comment lines of TypeScript, and `check:parity` recomputes the first four
+rows and fails when the table drifts from the tree. It did drift once:
+three of those four rows no longer matched the tree, and nothing noticed.
 
 |                                  | functional-style | class-style |
 | -------------------------------- | ---------------- | ----------- |
-| source files                     | 25               | 11          |
+| source files                     | 27               | 13          |
 | test files                       | 13               | 4           |
-| source lines                     | 980              | 887         |
-| test lines                       | 1426             | 901         |
-| files touched to add an endpoint | 5                | 1           |
+| source lines                     | 751              | 738         |
+| test lines                       | 1182             | 790         |
+| files touched to add an endpoint | 4                | 1           |
 | imports per spec                 | 3–7              | 3–7         |
 
 Two of these deserve comment because they contradict what is usually claimed.
@@ -54,7 +57,7 @@ Two of these deserve comment because they contradict what is usually claimed.
 a spec needs its error codes, its fixtures, and its helpers either way. The
 grouping moves where things live; it does not remove the need to name them.
 
-**The line difference is mostly test-file structure, not density.** 1426 vs 901
+**The line difference is mostly test-file structure, not density.** 1182 vs 790
 test lines looks decisive until you notice `functional-style` splits items across
 three spec files with a fixture file per service, while `class-style` keeps one
 spec per service. Per assertion the two are close.

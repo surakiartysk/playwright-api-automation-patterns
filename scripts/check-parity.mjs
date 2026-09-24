@@ -13,7 +13,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -307,3 +307,87 @@ if (wrong.length > 0) {
 
 console.log('✓ check:parity — the per-tag counts in test-strategy.md match the suite')
 console.log('✓ check:parity — the tag taxonomy in CONTRIBUTING.md matches the suite')
+
+// ── The measurement table in docs/comparison.md ─────────────────────────────
+//
+// The table says "measured, not estimated", and three of its four measured
+// rows had drifted from the tree — 25 source files in functional-style, where
+// the tree has 27. A number written down once
+// is an estimate of the day it was written. So the four rows that
+// can be measured are, on every run, with the method the table states:
+// TypeScript files, and their non-blank, non-comment lines.
+
+function* walkTs(dir) {
+  for (const entry of readdirSync(dir)) {
+    const path = join(dir, entry)
+    if (statSync(path).isDirectory()) yield* walkTs(path)
+    else if (path.endsWith('.ts')) yield path
+  }
+}
+
+function measure(dir) {
+  let files = 0
+  let lines = 0
+  let inBlockComment = false
+  for (const file of walkTs(dir)) {
+    files += 1
+    for (const raw of readFileSync(file, 'utf8').split('\n')) {
+      const line = raw.trim()
+      if (inBlockComment) {
+        if (line.includes('*/')) inBlockComment = false
+        continue
+      }
+      if (line === '' || line.startsWith('//') || line.startsWith('*')) continue
+      if (line.startsWith('/*')) {
+        if (!line.includes('*/')) inBlockComment = true
+        continue
+      }
+      lines += 1
+    }
+  }
+  return { files, lines }
+}
+
+const comparison = readFileSync(join(ROOT, 'docs/comparison.md'), 'utf8')
+const measured = Object.fromEntries(
+  PACKAGES.map((pkg) => {
+    const src = measure(join(ROOT, 'packages', pkg, 'src'))
+    const tests = measure(join(ROOT, 'packages', pkg, 'tests'))
+    return [
+      pkg,
+      {
+        'source files': src.files,
+        'test files': tests.files,
+        'source lines': src.lines,
+        'test lines': tests.lines,
+      },
+    ]
+  }),
+)
+
+const tableWrong = []
+for (const row of ['source files', 'test files', 'source lines', 'test lines']) {
+  const match = new RegExp(`^\\|\\s*${row}\\s*\\|\\s*(\\d+)\\s*\\|\\s*(\\d+)\\s*\\|`, 'm').exec(
+    comparison,
+  )
+  if (!match) {
+    tableWrong.push(`docs/comparison.md: could not find the '${row}' row this check guards`)
+    continue
+  }
+  PACKAGES.forEach((pkg, index) => {
+    const claimed = Number(match[index + 1])
+    const actual = measured[pkg][row]
+    if (claimed !== actual) {
+      tableWrong.push(`docs/comparison.md: ${pkg} ${row} claims ${claimed}, the tree has ${actual}`)
+    }
+  })
+}
+
+if (tableWrong.length > 0) {
+  console.error('\n✖ check:parity — the measurement table has drifted.\n')
+  for (const problem of tableWrong) console.error(`  ${problem}`)
+  console.error('\nUpdate the table, and any prose that quotes it.\n')
+  process.exit(1)
+}
+
+console.log('✓ check:parity — the measurement table in comparison.md matches the tree')
