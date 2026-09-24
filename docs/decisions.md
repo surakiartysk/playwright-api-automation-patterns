@@ -190,9 +190,9 @@ That is a genuine limitation, not a solved problem.
 
 **Fidelity is deliberate.** The mock enforces what the tests assert: state
 transitions, validation naming the offending field, role gates, cross-service
-side effects — and, in six validation limits, more than the tests pin, which
-[test-strategy.md](test-strategy.md) lists rather than leaving "exactly" to
-stand. It skips persistence, real crypto, rate limiting,
+side effects. For a while it also enforced seven validation limits no test
+pinned; [test-strategy.md](test-strategy.md) lists them and how each is now
+held. It skips persistence, real crypto, rate limiting,
 and pricing math. A mock drifting toward being a real backend stops being worth
 maintaining; a mock too permissive lets the best specs pass vacuously.
 
@@ -389,7 +389,7 @@ What Allure adds that the built-in report does not:
 
 **The labels are derived, not annotated.** Tags already exist for filtering
 (`--grep @smoke`), so an auto fixture reads them and stamps the Allure labels.
-Annotating all 194 tests by hand — 97 in each package — would be a second
+Annotating all 222 tests by hand — 111 in each package — would be a second
 source of truth that drifts the first time someone forgets one, and specs stay
 unaware of the reporter entirely.
 

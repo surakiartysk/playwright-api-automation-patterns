@@ -164,6 +164,44 @@ test.describe('maintenance log servicing', { tag: ['@maintenance-logs', '@flow']
     await maintenanceValidator.expectValidationError(response, 'resolutionNote')
   })
 
+  /**
+   * Both ends of the resolution note, 3 and 280 characters. Requiring a note
+   * says nothing about how short one may be: without the lower pair a note of
+   * one character passed, and without the upper pair so did three hundred.
+   */
+  test.describe('resolution note length', () => {
+    for (const [label, length, accepted] of [
+      ['exactly the minimum', 3, true],
+      ['one character under the minimum', 2, false],
+      ['exactly the maximum', 280, true],
+      ['one character over the maximum', 281, false],
+    ] as const) {
+      test(`should ${accepted ? 'accept' : 'reject'} a note of ${label}`, async ({
+        itemsAsStaff,
+        reservationsAsStaff,
+        maintenanceAsStaff,
+        maintenanceValidator,
+      }) => {
+        const { log } = await provisionOpenLog({
+          items: itemsAsStaff,
+          reservations: reservationsAsStaff,
+          maintenance: maintenanceAsStaff,
+        })
+
+        const response = await maintenanceAsStaff.resolveLog(log.id, {
+          resolutionNote: 'r'.repeat(length),
+        })
+
+        if (accepted) {
+          const resolved = await maintenanceValidator.expectLog(response)
+          expect(resolved.state).toBe('RESOLVED')
+        } else {
+          await maintenanceValidator.expectValidationError(response, 'resolutionNote')
+        }
+      })
+    }
+  })
+
   test('should filter logs by item', async ({
     itemsAsStaff,
     reservationsAsStaff,

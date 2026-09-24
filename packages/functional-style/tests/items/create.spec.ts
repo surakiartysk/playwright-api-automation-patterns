@@ -267,5 +267,47 @@ test.describe('POST /items', { tag: ['@items', '@isolated'] }, () => {
 
       await itemsValidator.expectItem(response, 201)
     })
+
+    /**
+     * The sku pattern's own boundary. The malformed-sku test above sends
+     * `nope-1`, which breaks the case, the letter count and the digit count at
+     * once — so it pins none of them. A pattern loosened to three digits kept
+     * every test green until these existed.
+     */
+    test('should reject a sku one digit short', async ({ itemsAsStaff, itemsValidator }) => {
+      const response = await itemsAsStaff.createItem(buildItemPayload({ sku: 'ABC-123' }))
+
+      const [error] = await itemsValidator.expectValidationError(response, 'sku')
+      expect(error?.rule).toBe('pattern')
+    })
+
+    test('should reject a sku one digit long', async ({ itemsAsStaff, itemsValidator }) => {
+      const response = await itemsAsStaff.createItem(buildItemPayload({ sku: 'ABC-12345' }))
+
+      const [error] = await itemsValidator.expectValidationError(response, 'sku')
+      expect(error?.rule).toBe('pattern')
+    })
+
+    test('should accept a condition note of exactly the maximum length', async ({
+      itemsAsStaff,
+      itemsValidator,
+    }) => {
+      const conditionNote = 'n'.repeat(280)
+      const response = await itemsAsStaff.createItem(buildItemPayload({ conditionNote }))
+
+      const item = await itemsValidator.expectItem(response, 201)
+      expect(item.conditionNote).toBe(conditionNote)
+    })
+
+    test('should reject a condition note one character over the maximum', async ({
+      itemsAsStaff,
+      itemsValidator,
+    }) => {
+      const response = await itemsAsStaff.createItem(
+        buildItemPayload({ conditionNote: 'n'.repeat(281) }),
+      )
+
+      await itemsValidator.expectValidationError(response, 'conditionNote')
+    })
   })
 })

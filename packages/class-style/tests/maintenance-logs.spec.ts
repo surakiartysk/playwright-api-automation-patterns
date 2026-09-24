@@ -135,6 +135,36 @@ test.describe('maintenance logs', { tag: ['@maintenance-logs', '@flow'] }, () =>
     await maintenanceAsStaff.expectValidationError(response, 'resolutionNote')
   })
 
+  /**
+   * Both ends of the note: requiring one says nothing about how short it may
+   * be. Without these a one-character note passed, and so did three hundred.
+   */
+  test.describe('resolution note length', () => {
+    for (const [label, length, accepted] of [
+      ['exactly the minimum', 3, true],
+      ['one character under the minimum', 2, false],
+      ['exactly the maximum', 280, true],
+      ['one character over the maximum', 281, false],
+    ] as const) {
+      test(`should ${accepted ? 'accept' : 'reject'} a note of ${label}`, async ({
+        itemsAsStaff,
+        reservationsAsStaff,
+        maintenanceAsStaff,
+      }) => {
+        const { log } = await maintenanceAsStaff.provisionOpenLog(itemsAsStaff, reservationsAsStaff)
+
+        const response = await maintenanceAsStaff.resolve(log.id, 'r'.repeat(length))
+
+        if (accepted) {
+          const resolved = await maintenanceAsStaff.expectLog(response)
+          expect(resolved.state).toBe('RESOLVED')
+        } else {
+          await maintenanceAsStaff.expectValidationError(response, 'resolutionNote')
+        }
+      })
+    }
+  })
+
   test('should filter logs by item', async ({
     itemsAsStaff,
     reservationsAsStaff,

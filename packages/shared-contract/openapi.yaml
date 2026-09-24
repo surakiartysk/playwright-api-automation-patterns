@@ -67,7 +67,7 @@ paths:
                       data:
                         $ref: '#/components/schemas/Session'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/InvalidCredentials'
         '422':
           $ref: '#/components/responses/ValidationFailed'
 
@@ -79,11 +79,12 @@ paths:
       operationId: listItems
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - {
-            name: pageSize,
-            in: query,
-            schema: { type: integer, minimum: 1, maximum: 100, default: 20 },
-          }
+        - name: pageSize
+          in: query
+          description: |
+            Capped, not refused: a value above 100 is served as 100, and
+            `pagination.pageSize` in the response says what was used.
+          schema: { type: integer, minimum: 1, default: 20 }
         - { name: category, in: query, schema: { $ref: '#/components/schemas/ItemCategory' } }
         - { name: status, in: query, schema: { $ref: '#/components/schemas/ItemStatus' } }
         # Exact-match lookup. A list endpoint with no way to ask for one known
@@ -481,6 +482,17 @@ components:
             success: false
             code: AUTH_UNAUTHORIZED
             message: authentication required
+            data: null
+    InvalidCredentials:
+      description: Sign-in only — the email and password match no account
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            success: false
+            code: AUTH_INVALID_CREDENTIALS
+            message: invalid email or password
             data: null
     Forbidden:
       description: Authenticated, but the role may not perform this action

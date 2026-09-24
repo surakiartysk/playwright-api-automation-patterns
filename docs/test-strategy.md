@@ -12,10 +12,10 @@ technique, because it is the only part that still helps when a deadline moves.
 
 Every test here is one of two kinds.
 
-| Level                    | Answers                                              | Cost                  | Here     |
-| ------------------------ | ---------------------------------------------------- | --------------------- | -------- |
-| **Isolated** `@isolated` | Does this endpoint honour its contract?              | Fast, easy to debug   | 82 of 97 |
-| **Flow** `@flow`         | Does a chain of endpoints reach the right end state? | Slower, catches seams | 15 of 97 |
+| Level                    | Answers                                              | Cost                  | Here      |
+| ------------------------ | ---------------------------------------------------- | --------------------- | --------- |
+| **Isolated** `@isolated` | Does this endpoint honour its contract?              | Fast, easy to debug   | 92 of 111 |
+| **Flow** `@flow`         | Does a chain of endpoints reach the right end state? | Slower, catches seams | 19 of 111 |
 
 Isolated tests find bugs faster and with less noise, so they come first.
 Flows are promoted from the handful of journeys that actually matter — here,
@@ -39,7 +39,7 @@ in this suite where a defect was found or would have been expensive to miss.
 | **Authorization per role**    | Over-permission is a security defect, not a bug                 | `TRANSITION_ROLES`; `AUTH_FORBIDDEN` asserted per guarded action    |
 | **Cross-entity dependency**   | Breaks only in combination — invisible to single-endpoint tests | `maintenance-logs` cannot be created directly; `@cross-service` (5) |
 | **Filters and pagination**    | A filter that silently matches everything reads as passing      | `items` — every filter seeds a match **and** a non-match            |
-| **Shared assertion helpers**  | If the helper stops checking, every test using it goes vacuous  | `@core` (13) — the helpers have their own tests                     |
+| **Shared assertion helpers**  | If the helper stops checking, every test using it goes vacuous  | `@core` (15) — the helpers' own tests, and sign-in's two            |
 
 Deliberately deprioritised: response-field ordering, exhaustive optional-field
 permutations that share one validation path, and free-text `maxLength` with no
@@ -112,23 +112,32 @@ short names. Pairing it with `'abc'` accepted is what pins the boundary, so an
 off-by-one in either direction fails one of the pair. `dailyRateCents` gets the
 same treatment at `0` and `-1`.
 
-Those two are the limits this suite pins. This used to say "every limit", and
-the mock enforces six more that nothing pins — each was widened in the mock and
-all 97 + 97 tests stayed green:
+Those two were, for a while, the only limits this suite pinned. The mock
+enforces seven more, and each was widened in the mock with all 97 + 97 tests
+staying green. They are pinned now, each by an accept-at-the-limit and
+reject-one-past pair, and each pair was checked by moving the mock's limit one
+step in both directions — 14 mutations, every one caught in both packages:
 
-| Limit                        | The mock enforces | Widened to, unnoticed |
-| ---------------------------- | ----------------- | --------------------- |
-| `sku` format                 | `ABC-1234`        | three or four digits  |
-| item `conditionNote`         | at most 280       | 300                   |
-| reservation `note`           | at most 280       | 300                   |
-| maintenance `resolutionNote` | at least 3        | 1                     |
-| `pageSize` on the item list  | at most 100       | 1000                  |
-| `password` at sign-in        | at least 8        | 1                     |
+| Limit                        | The mock enforces | Pinned by                   |
+| ---------------------------- | ----------------- | --------------------------- |
+| `sku` format                 | `ABC-1234`        | three and five digits fail  |
+| item `conditionNote`         | at most 280       | 280 accepted, 281 refused   |
+| reservation `note`           | at most 280       | 280 accepted, 281 refused   |
+| maintenance `resolutionNote` | 3 to 280          | 3 and 280 in, 2 and 281 out |
+| `pageSize` on the item list  | at most 100       | 100 served, 101 capped      |
+| `password` at sign-in        | at least 8        | 7 refused, 8 reaches auth   |
 
-The `sku` case is the sharpest, because a test exists: it sends `'nope-1'`,
-which fails every rule at once and so pins none of them — the partition the
-paragraph above warns about. These six are a budget decision now that they are
-written down; before, they were a gap nobody had noticed.
+This list said six until the pinning started: `resolutionNote` has a maximum as
+well as a minimum, and nothing had tested either. The `sku` case was the
+sharpest, because a test existed: it sent `'nope-1'`, which fails every rule at
+once and so pinned none of them — the partition the paragraph above warns
+about.
+
+Two of these assert something other than a 400. `pageSize` over the limit is
+capped rather than refused, so the test reads back the size it was served.
+And an eight-character password is valid _input_, so the test proves it by
+getting past validation to `AUTH_INVALID_CREDENTIALS` — a different refusal,
+which is the point.
 
 **State transition is why `reservations` is nearly the largest service here**
 despite having the fewest fields to validate. The
@@ -167,7 +176,7 @@ question at a different moment:
 A tier is only worth having when running the tier below it _saves something_ —
 almost always time. With many services and a suite measured in minutes, the gap
 between "verify the deploy" and "run everything" is real, and `@acceptance`
-earns its place by filling it. Here the full suite is **97 tests in under three
+earns its place by filling it. Here the full suite is **111 tests in about five
 seconds**. There is no time to save, so a middle tier would be a label that
 sorts tests without ever changing what anyone runs.
 
@@ -196,9 +205,13 @@ A gap nobody wrote down is indistinguishable from a gap nobody noticed, so:
   transitions); the transport is not, because there is none.
 - **No contract-drift detection — not even against the bundled mock.**
   `openapi.yaml` is the arbiter by convention, and nothing reads it. Changing
-  the documented status of `POST /items` from `201` to `200` leaves all 97 + 97
+  the documented status of `POST /items` from `201` to `200` leaves all 111 + 111
   tests passing, measured. The mock and the contract are held together by
   review, and [decision 6](decisions.md#6-bundle-a-mock--and-when-the-same-question-has-the-opposite-answer)
   states that cost. This used to say drift was "impossible by construction";
-  nothing constructed it.
+  nothing constructed it. Writing the boundary tests turned up two real
+  instances: sign-in's 401 pointed at the bearer-token response, whose example
+  code the mock never sends there, and `pageSize` declared `maximum: 100`
+  where the mock caps rather than refuses. Both were found by reading, which
+  is the cost in practice.
 - **No `@acceptance` tier**, for the reason above.

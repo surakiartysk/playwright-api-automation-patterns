@@ -137,4 +137,32 @@ test.describe('GET /items', { tag: ['@items', '@isolated'] }, () => {
     // Derived from `total`, so it stays true regardless of the shared count.
     expect(page.pagination.totalPages).toBe(page.pagination.total)
   })
+
+  /**
+   * The ceiling on pageSize is the contract's `maximum: 100`, and the API caps
+   * rather than refuses. The pair pins both halves: 100 is served as asked,
+   * and 101 comes back as 100 — so a raised ceiling fails the second and a
+   * lowered one fails the first.
+   */
+  test('should serve a pageSize of exactly the maximum', async ({
+    itemsAsStaff,
+    itemsValidator,
+  }) => {
+    const page = await itemsValidator.expectItemPage(
+      await itemsAsStaff.listItems({ pageSize: 100 }),
+    )
+
+    expect(page.pagination.pageSize).toBe(100)
+  })
+
+  test('should cap a pageSize over the maximum at 100', async ({
+    itemsAsStaff,
+    itemsValidator,
+  }) => {
+    const page = await itemsValidator.expectItemPage(
+      await itemsAsStaff.listItems({ pageSize: 101 }),
+    )
+
+    expect(page.pagination.pageSize).toBe(100)
+  })
 })

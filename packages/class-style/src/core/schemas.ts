@@ -50,6 +50,8 @@ export const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'expected YYYY-MM
 
 export const CommonError = {
   UNAUTHORIZED: 'AUTH_UNAUTHORIZED',
+  /** Sign-in only: the email and password match no account. */
+  INVALID_CREDENTIALS: 'AUTH_INVALID_CREDENTIALS',
   FORBIDDEN: 'AUTH_FORBIDDEN',
   NOT_FOUND: 'NOT_FOUND',
   VALIDATION_FAILED: 'VALIDATION_FAILED',

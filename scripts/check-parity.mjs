@@ -258,7 +258,7 @@ for (const [tag, pattern] of STRATEGY_CLAIMS) {
 }
 
 // The doc also states the total in prose.
-const totalClaim = /\*\*(\d+) tests in under three/.exec(strategy)
+const totalClaim = /\*\*(\d+) tests in about /.exec(strategy)
 if (!totalClaim) {
   wrong.push('docs/test-strategy.md: could not find the total-test claim this check guards')
 } else if (Number(totalClaim[1]) !== actual) {
