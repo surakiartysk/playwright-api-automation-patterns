@@ -95,7 +95,7 @@ showcase.
 A suite has to be _operated_, not only written. That half is published
 separately:
 
-**`playwright-run-dashboard`** — self-service test
+**[`playwright-run-dashboard`](https://github.com/surakiartysk/playwright-run-dashboard)** — self-service test
 running: a developer picks a slice, presses Run, and gets a link to the report
 without waiting on anyone. Four roles — including a `demo` role that can never
 trigger a real run, which is why its password is safe to publish — and the

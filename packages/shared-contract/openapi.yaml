@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Contract-first: this file is written BEFORE the mock and before any test.
-# The mock (packages/shared-contract/mock) implements it; both test suites
+# The mock (packages/shared-contract/src/mock) implements it; both test suites
 # (functional-style, class-style) assert against it. When they disagree, this
 # file is the arbiter.
 #

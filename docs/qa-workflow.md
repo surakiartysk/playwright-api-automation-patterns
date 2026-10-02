@@ -81,7 +81,7 @@ curl -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: Bearer $GITHUB_TOKEN" \
   https://api.github.com/repos/<owner>/<repo>/dispatches \
-  -d '{"event_type":"run-tests","client_payload":{"scope":"regression"}}'
+  -d '{"event_type":"run-tests","client_payload":{"scope":"all"}}'
 ```
 
 That token needs `actions: write` on this repository, which is the problem with

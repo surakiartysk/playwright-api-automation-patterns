@@ -45,7 +45,7 @@ Same intent, without a hand-maintained artifact to keep in sync.
 The last row used to say "the suite itself", and that was wrong. The suite
 checks the mock against what the tests expect, not against `openapi.yaml`,
 which nothing reads — a contract edited to promise `200` where the mock
-returns `201` leaves every test green. Of the seven kinds of drift in the table,
+returns `201` leaves every test green. Of the six kinds of drift in the table,
 it is the one no build catches.
 
 **Dropped: design steps as documents.**
@@ -53,7 +53,7 @@ it is the one no build catches.
 Separate design documents are right when a service takes weeks and several
 people read the output. For three services designed in one pass, the steps
 collapse into the order the work is done: contract first, then the mock, then
-the tests — stated in [`CLAUDE.md`](../CLAUDE.md) as four steps rather than
+the tests — stated in [`CLAUDE.md`](../CLAUDE.md) as five steps rather than
 separate documents.
 
 **Kept: everything that changes what gets written.**
