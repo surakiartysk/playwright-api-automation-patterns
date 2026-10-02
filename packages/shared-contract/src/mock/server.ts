@@ -12,10 +12,9 @@ import { reservationRoutes } from './routes/reservations.routes'
  * That property is the whole reason the mock exists; see docs/decisions.md.
  *
  * There is deliberately no reset endpoint. One process serves every worker, so
- * a reset would clear state out from under tests running in parallel. Isolation
- * comes from each test creating its own uniquely-named data instead — which is
- * also how a suite must behave against a shared real environment.
- *
+ * a reset would clear state out from under tests running in parallel.
+ * Isolation comes from each test creating its own uniquely-named data instead —
+ * which is also how a suite must behave against a shared real environment.
  */
 export function createApp(): Hono {
   const app = new Hono().basePath('/api/v1')

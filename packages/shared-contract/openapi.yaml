@@ -17,9 +17,9 @@ info:
   version: 1.0.0
   description: |
     A fictional outdoor-equipment rental back office, invented as a test subject
-    for this repository. Any resemblance to a real system is incidental — the
-    domain exists to give the test architecture something non-trivial to hold:
-    a real state machine, role-gated endpoints, and a cross-service side effect.
+    for this repository. The domain exists to give the test architecture
+    something non-trivial to hold: a real state machine, role-gated endpoints,
+    and a cross-service side effect.
   license:
     name: MIT
 

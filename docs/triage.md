@@ -96,8 +96,8 @@ reported anything.** Verified by opening the report in a browser, not by grep.
 
 ### API-DEFECT is the thinnest section here, on purpose
 
-Against a real backend this is the class that matters most: the contract is clear, the
-backend disagrees with it, and a bug report goes to another team.
+Against a real backend this is the class that matters most: the contract is
+clear, the backend disagrees with it, and a bug report goes to another team.
 
 **It barely exists in this repo, because the "backend" is a mock in this
 repository, written to satisfy the same contract the tests read.** A mismatch

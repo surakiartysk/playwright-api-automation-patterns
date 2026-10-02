@@ -40,8 +40,8 @@ pnpm exec playwright show-report                   # last HTML report
 
 ### Tags
 
-Three independent axes. A test carries one from each of the first two, and
-`@cross-service` when it applies.
+Four axes. Every test carries one `kind` and one `domain`; `@smoke` and
+`@cross-service` are added where they apply.
 
 ```
 importance    @smoke (6)
@@ -120,10 +120,11 @@ Two details worth knowing:
   not a fair one. It also holds the documented counts, the tag table, and
   `on-demand.yml`'s scope list against the suite itself — a tag that no
   dropdown offers is a slice nobody can run, which is how `@cross-service`
-  went five tests deep and unreachable. This has already caught two real gaps. It is in `pnpm verify`
-  too — it was CI-only for a while, which made `verify` a weaker gate than the
-  phrase "everything CI runs" promised. It goes last because it shells out to
-  `playwright --list`, so it wants the install the tests have already proven.
+  went five tests deep and unreachable. This has already caught two real gaps.
+  It is in `pnpm verify` too — it was CI-only for a while, which made `verify`
+  a weaker gate than the phrase "everything CI runs" promised. It goes last
+  because it shells out to `playwright --list`, so it wants the install the
+  tests have already proven.
 
 ## Adding a service
 
@@ -136,5 +137,5 @@ Two details worth knowing:
 5. `pnpm verify`.
 
 Step 4 is not optional. A green test proves nothing until it has been seen
-failing — see decision 9 for two cases where a test that looked correct
-could not fail at all.
+failing — see [docs/test-strategy.md](docs/test-strategy.md#two-gaps-that-were-found-by-asking-this-question)
+for two cases where a test that looked correct could not fail at all.

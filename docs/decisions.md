@@ -237,8 +237,8 @@ happens as the count grows.
 
 **What does not scale.** Copying a service folder to make the next one. By the
 sixth copy the envelope schema, the error codes, the client wrapper, and the
-provisioner scaffolding exist six times, and fixing any of them means
-six edits. Drift becomes a question of when.
+provisioner scaffolding exist six times, and fixing any of them means six edits.
+Drift becomes a question of when.
 
 **The seam.** Pull the genuinely-shared pieces into `core` and have each service
 **delegate** to it, keeping the per-service surface unchanged, so call sites
@@ -255,9 +255,9 @@ type-checking alone cannot prove safe.
 **Extract only what is identical and safe; leave the rest until a third case
 proves its shape.** That restraint is the decision, not the extraction.
 
-**Trade-off.** Deliberate duplication survives per service, and a reader
-may read it as unfinished. It is the cheaper mistake: a wrong shared
-base costs more than duplication across two services.
+**Trade-off.** Deliberate duplication survives per service, and a reader may
+read it as unfinished. It is the cheaper mistake: a wrong shared base costs more
+than duplication across two services.
 
 **How this repo reflects it.** `core` holds exactly the shared envelope, codes,
 and base classes. Each service keeps its own schemas and its own error
@@ -350,8 +350,10 @@ pretending it is load-bearing would be worse than not showing it.
 **Trade-off.** Four files instead of one, with setup steps duplicated across
 them. A composite action or reusable workflow would remove that duplication —
 and would be the right call at more workflows or more steps. At four, the
-indirection costs more reading than the duplication costs maintenance. This is
-decision 8's rule applied to CI: extract when a third case proves the shape.
+indirection costs more reading than the duplication costs maintenance: what the
+four share is a checkout and an install, which is not yet a shape worth
+abstracting. Decision 8's rule says when to look, not that every third copy
+must go.
 
 **A gate on the repo's own claim.** `ci` also runs `check:parity`, which fails if
 the two suites stop covering the same number of behaviours. The comparison this
@@ -397,10 +399,10 @@ unaware of the reporter entirely.
 live: `allure-history.json` is ignored here rather than committed, because
 shipping run data from a contributor's laptop is noise and a merge conflict —
 which means a fresh clone has no trend until CI accumulates one. That is the
-honest state, not a solved problem. Allure is also run-centric: it says nothing across repositories, so an
-organisation tracking flakiness over a dozen suites would outgrow it and need
-something aggregating — at which point Allure becomes one input rather than the
-answer. Not a problem at one repository.
+honest state, not a solved problem. Allure is also run-centric: it says nothing
+across repositories, so an organisation tracking flakiness over a dozen suites
+would outgrow it and need something aggregating — at which point Allure becomes
+one input rather than the answer. Not a problem at one repository.
 
 **Where.** `scripts/allure-report.mjs`, `src/utils/allure-meta.ts` (and its
 `class-style` twin), the reporter block in both `playwright.config.ts`.

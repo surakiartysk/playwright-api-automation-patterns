@@ -19,9 +19,9 @@ were fixed first and checked afterwards.
 | No shared code        | `class-style` imports nothing from `functional-style` — only the contract package. Sharing a base would make this one style with two spellings. |
 | Same defect detection | Every mutation to the mock produces the **same failure count in both packages**.                                                                |
 
-That last row is the one that matters most, and it caught a real problem. An
-earlier draft of `class-style` had no test guarding its assertion helper, while
-`functional-style` did. Both suites passed, but one was strictly better
+That last row is the one that matters most, and it caught a real problem. Once
+the helper's blind spot below was found, an earlier draft guarded it with a test
+in `functional-style` only. Both suites passed, but one was strictly better
 protected for reasons unrelated to its style. See "The finding that belongs to
 neither style" below.
 
@@ -103,7 +103,7 @@ two other contexts as arguments specifically to avoid a context that quietly
 owns half the API.
 
 **Smaller units to read.** A reviewer opening `ItemsValidator.ts` sees 33 lines
-about assertions. Opening `ItemsContext.ts` sees 131 lines covering three
+about assertions. Opening `ItemsContext.ts` sees 133 lines covering three
 concerns, sectioned by comments rather than by file boundaries.
 
 ## The finding that belongs to neither style

@@ -4,11 +4,11 @@ import type { TestInfo } from '@playwright/test'
 /**
  * Derives Allure's Behaviors tree from the tags a spec already carries.
  *
- * The alternative is annotating every test by hand, which is ~160 edits here
- * and drifts the moment someone forgets one. Tags are already required for
- * filtering (`--grep @smoke`), so deriving from them keeps a single source and
- * makes the report a consequence of the tags rather than a parallel system to
- * maintain.
+ * The alternative is annotating every test by hand, which is an edit to all
+ * 111 in each package and drifts the moment someone forgets one. Tags are
+ * already required for filtering (`--grep @smoke`), so deriving from them keeps
+ * a single source and makes the report a consequence of the tags rather than a
+ * parallel system to maintain.
  *
  * Called once from a fixture, so specs stay unaware of the reporter entirely.
  */

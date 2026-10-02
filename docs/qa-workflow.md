@@ -84,11 +84,11 @@ curl -X POST \
   -d '{"event_type":"run-tests","client_payload":{"scope":"all"}}'
 ```
 
-That token needs `actions: write` on this repository, which is the problem with
-handing it to people. A fine-grained PAT scoped to one repository is the least
-bad version, and it is still a credential that can start jobs, read Actions
-logs, and outlive the person's need for it. It suits a _system_ — a deploy
-pipeline, a release script — where the token lives in that system's secret
+A fine-grained token needs `contents: write` on this repository to send that
+event — the same permission that pushes code — which is the problem with handing
+it to people. Scoped to one repository it is the least bad version, and it is
+still a credential that outlives the person's need for it. It suits a _system_
+that never talks to the dashboard, where the token lives in that system's secret
 store and rotates with it.
 
 **A developer** should not be holding one. The reason is not trust, it is
@@ -105,9 +105,9 @@ right now. No developer ever holds a credential that can reach Actions.
 
 **A pipeline** is the case that does want a key, and it is a different key. Not
 a GitHub token handed to a developer, but one the dashboard issues and whose
-authority it defines: scoped to a service and a branch, revocable in one place,
-and attributable in the run history. A deploy job then verifies its own
-environment the moment it finishes, with nobody watching.
+authority it defines: limited to the branches and workers the dashboard allows
+it, revocable in one place, and attributable in the run history. A deploy job
+then verifies its own environment the moment it finishes, with nobody watching.
 
 That is built. `POST /runs` accepts `Authorization: Bearer <key>` alongside a
 session, a key resolves to a role before any handler runs, and every rule the
@@ -133,7 +133,8 @@ Being explicit, because the boundary is the interesting part.
 The self-service piece is a small dashboard rather than the GitHub Actions UI —
 published separately as the run dashboard:
 
-- a developer picks a service and tags from a web page and presses **Run**
+- a developer picks a suite and a slice to run from a web page and presses
+  **Run**
 - that writes a queued row to a database and triggers the workflow
 - the workflow runs the tests, uploads the report to object storage, and posts
   a signed webhook back with the totals
@@ -153,10 +154,10 @@ stranger can clone it and run everything with none of those. The
 It is published as a **companion repository** instead, built the same way and
 for the same reason:
 
-**`playwright-run-dashboard`** — the trigger →
-run → report flow, with four roles and the authorisation that makes
-self-service safe. Its interesting question is not the Run button but _who may
-run what, against which branch, and who may then see the result_.
+**[`playwright-run-dashboard`](https://github.com/surakiartysk/playwright-run-dashboard)**
+— the trigger → run → report flow, with four roles and the authorisation that
+makes self-service safe. Its interesting question is not the Run button but
+_who may run what, against which branch, and who may then see the result_.
 
 It dispatches **two** suites: this one, and
 `playwright-ui-automation-patterns`, which asks the same question of browser
@@ -226,15 +227,15 @@ pnpm allure:open
 The Allure tree groups by service first, then by test type:
 
 ```
-Items                 54
+Items                 92
 Cross-Service         10
   ├ Driven from Maintenance Logs   6
   └ Driven from Reservations       4
-Maintenance Logs      10
-Reservations          66
-  ├ Isolated          58
+Maintenance Logs      20
+Reservations          70
+  ├ Isolated          62
   └ Flow               8
-Test Infrastructure   26
+Test Infrastructure   30
 ```
 
 `Cross-Service` is its own epic rather than a row under whichever service the
@@ -246,7 +247,7 @@ only to set up, and calling those cross-service would label nearly everything.
 Counts are doubled because both packages land in the same report. The
 Playwright HTML report covers the same ground per package, with tags rendered as
 clickable chips — typing `@reservations` into its search box narrows to exactly
-the 35 tests `--grep @reservations` would run.
+the 37 tests `--grep @reservations` would run.
 
 Both packages land in **one** report, because the comparison is the point —
 separate reports would mean two tabs and diffing by eye.
@@ -281,8 +282,9 @@ reporting job.
 
 4. **Break the mock deliberately.** If a test is suspected of being vacuous,
    remove the behaviour it targets and confirm it goes red. Two tests in this
-   repo passed while testing nothing, and both were found this way — see
-   decision 9.
+   repo passed while testing nothing: one was found by breaking the mock, the
+   other by breaking the shared assertion helper — see
+   [test-strategy.md](test-strategy.md#two-gaps-that-were-found-by-asking-this-question).
 
 Steps 2 and 3 are cheap because the suite carries its own backend: reproducing
 a CI failure locally needs no environment access.

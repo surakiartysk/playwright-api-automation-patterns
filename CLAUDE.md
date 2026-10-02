@@ -29,11 +29,14 @@ being fair. Diff the test names when unsure.
 
 **1. Every test must be proven able to fail.** A green suite means nothing until
 you have watched it go red for the right reason. Before claiming a spec is done,
-break the mock behaviour it targets and confirm the failure, then restore. This
-has already caught two vacuous assertions that read as correct:
+break the behaviour it targets — in the mock, or in a shared helper — and
+confirm the failure, then restore. This has already caught two vacuous
+assertions that read as correct:
 
-- a `category` filter test that passed with the filter deleted, because run alone the store held only matching rows
-- a token-expiry check that could be removed entirely with nothing failing
+- a `category` filter test that passed with the filter deleted, because run
+  alone the store held only matching rows
+- the status-code check in the shared assertion helper, which could be removed
+  with every test still green
 
 When asserting a filter, seed both a match **and** a non-match. When asserting a
 listing, assert against data the test created — never global counts.

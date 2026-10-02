@@ -47,7 +47,8 @@ stated oracle. Each would add tests without adding information.
 
 ### Two gaps that were found by asking this question
 
-Both come from [decision 9](decisions.md#9-test-the-assertion-helper-or-it-can-rot-silently):
+The first is a worked example in [triage.md](triage.md); the second is
+[decision 9](decisions.md#9-test-the-assertion-helper-or-it-can-rot-silently):
 
 - A `category` filter test passed **with the filter deleted**, because run
   alone the store happened to hold only matching rows. Hence the rule: a filter
