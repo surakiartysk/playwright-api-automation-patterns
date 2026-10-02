@@ -15,16 +15,16 @@ importers:
         specifier: ^21.2.2
         version: 21.2.2
       '@eslint/js':
-        specifier: ^9.17.0
+        specifier: ^9.39.5
         version: 9.39.5
       allure:
         specifier: ^3.15.0
         version: 3.15.0(preact@10.29.8)(typescript@5.9.3)
       eslint:
-        specifier: ^9.17.0
+        specifier: ^9.39.5
         version: 9.39.5(jiti@2.6.1)
       eslint-config-prettier:
-        specifier: ^9.1.0
+        specifier: ^9.1.2
         version: 9.1.2(eslint@9.39.5(jiti@2.6.1))
       globals:
         specifier: ^17.11.0
@@ -36,13 +36,13 @@ importers:
         specifier: ^17.3.0
         version: 17.3.0
       prettier:
-        specifier: ^3.4.2
+        specifier: ^3.9.6
         version: 3.9.6
       typescript:
-        specifier: ^5.7.2
+        specifier: ^5.9.3
         version: 5.9.3
       typescript-eslint:
-        specifier: ^8.18.1
+        specifier: ^8.67.0
         version: 8.67.0(eslint@9.39.5(jiti@2.6.1))(typescript@5.9.3)
 
   packages/class-style:
@@ -51,14 +51,14 @@ importers:
         specifier: workspace:*
         version: link:../shared-contract
       zod:
-        specifier: ^3.24.1
+        specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
       '@playwright/test':
-        specifier: ^1.49.1
+        specifier: ^1.62.1
         version: 1.62.1
       '@types/node':
-        specifier: ^22.10.2
+        specifier: ^22.20.1
         version: 22.20.1
       allure-js-commons:
         specifier: ^3.10.2
@@ -67,7 +67,7 @@ importers:
         specifier: ^3.10.2
         version: 3.10.2(@playwright/test@1.62.1)
       typescript:
-        specifier: ^5.7.2
+        specifier: ^5.9.3
         version: 5.9.3
 
   packages/functional-style:
@@ -76,14 +76,14 @@ importers:
         specifier: workspace:*
         version: link:../shared-contract
       zod:
-        specifier: ^3.24.1
+        specifier: ^3.25.76
         version: 3.25.76
     devDependencies:
       '@playwright/test':
-        specifier: ^1.49.1
+        specifier: ^1.62.1
         version: 1.62.1
       '@types/node':
-        specifier: ^22.10.2
+        specifier: ^22.20.1
         version: 22.20.1
       allure-js-commons:
         specifier: ^3.10.2
@@ -92,26 +92,26 @@ importers:
         specifier: ^3.10.2
         version: 3.10.2(@playwright/test@1.62.1)
       typescript:
-        specifier: ^5.7.2
+        specifier: ^5.9.3
         version: 5.9.3
 
   packages/shared-contract:
     dependencies:
       '@hono/node-server':
-        specifier: ^1.13.7
+        specifier: ^1.19.17
         version: 1.19.17(hono@4.13.2)
       hono:
-        specifier: ^4.6.14
+        specifier: ^4.13.2
         version: 4.13.2
     devDependencies:
       '@types/node':
-        specifier: ^22.10.2
+        specifier: ^22.20.1
         version: 22.20.1
       tsx:
-        specifier: ^4.19.2
+        specifier: ^4.23.12
         version: 4.23.12
       typescript:
-        specifier: ^5.7.2
+        specifier: ^5.9.3
         version: 5.9.3
 
 packages:
