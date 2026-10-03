@@ -117,7 +117,9 @@ Two details worth knowing:
   dependency that broke us is the entire reason it exists.
 - **`ci` runs `check:parity`.** Both suites must cover the same number of
   behaviours, or the comparison in [docs/comparison.md](docs/comparison.md) is
-  not a fair one. It also holds the documented counts, the tag table, and
+  not a fair one — and run them: Playwright lists a skipped test like any
+  other, so any `test.skip`, `test.fixme` or `test.fail` in a spec fails the
+  check. It also holds the documented counts, the tag table, and
   `on-demand.yml`'s scope list against the suite itself — a tag that no
   dropdown offers is a slice nobody can run, which is how `@cross-service`
   went five tests deep and unreachable. This has already caught two real gaps.

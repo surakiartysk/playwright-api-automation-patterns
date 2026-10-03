@@ -63,6 +63,49 @@ if (counts[a].length !== counts[b].length) {
 console.log('\n✓ check:parity — both suites cover the same number of behaviours')
 
 /**
+ * A skipped test is not a covered behaviour, but Playwright still lists it —
+ * so the count above, and the documented count below, both went on agreeing
+ * with a test that never runs. `test.skip` on one test in class-style left
+ * every part of this check green.
+ *
+ * Refused outright. docs/triage.md allows a skip with a written reason when a
+ * behaviour cannot be reached, and says nothing is skipped for that reason
+ * today: the mock is bundled, so any state the API can reach, a test can. The
+ * cost: the day a suite points at a real environment and a skip becomes
+ * honest, this needs an allowlist naming each one and its reason.
+ *
+ * Read from source rather than from the list, because a skip inside a test
+ * body is only decided when the test runs. Comments are removed first, so a
+ * commented-out test counts as gone rather than as covered.
+ */
+const skipped = []
+for (const pkg of PACKAGES) {
+  for (const file of walkTs(join(ROOT, 'packages', pkg, 'tests'))) {
+    if (!file.endsWith('.spec.ts')) continue
+    const lines = readFileSync(file, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ''))
+      .replace(/^[ \t]*\/\/.*$/gm, '')
+      .split('\n')
+    for (const [index, line] of lines.entries()) {
+      const m = /\btest(?:\.describe)?\.(?:skip|fixme|fail)\s*\(/.exec(line)
+      if (m) {
+        const call = m[0].replace(/\s*\($/, '')
+        skipped.push(`${file.slice(ROOT.length)}:${index + 1} calls ${call}`)
+      }
+    }
+  }
+}
+
+if (skipped.length > 0) {
+  console.error('\n✖ check:parity — a test that does not run is counted as a behaviour covered.\n')
+  for (const problem of skipped) console.error(`  ${problem}`)
+  console.error('\nMake it pass, or remove it from both packages and say so in the docs.\n')
+  process.exit(1)
+}
+
+console.log('✓ check:parity — neither suite skips a test')
+
+/**
  * The count the docs advertise must be the count the suite has.
  *
  * Not hypothetical either: the README and comparison.md both said 82 for a
