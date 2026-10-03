@@ -167,6 +167,14 @@ test.describe('reservations', { tag: ['@reservations'] }, () => {
       expect(after.state).toBe('DRAFT')
       expect(after.history).toHaveLength(0)
       expect(after.updatedAt).toBe(reservation.updatedAt)
+
+      // The control: a frozen updatedAt would pass the line above for the
+      // wrong reason, so an accepted transition must move it.
+      await new Promise((resolve) => setTimeout(resolve, 5))
+      const confirmed = await reservationsAsStaff.expectReservation(
+        await reservationsAsStaff.transition(reservation.id, 'confirm'),
+      )
+      expect(Date.parse(confirmed.updatedAt)).toBeGreaterThan(Date.parse(reservation.updatedAt))
     })
 
     test('should reject an unknown action with 422, not 409', async ({

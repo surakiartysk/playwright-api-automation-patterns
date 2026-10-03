@@ -30,13 +30,15 @@ being fair. Diff the test names when unsure.
 **1. Every test must be proven able to fail.** A green suite means nothing until
 you have watched it go red for the right reason. Before claiming a spec is done,
 break the behaviour it targets — in the mock, or in a shared helper — and
-confirm the failure, then restore. This has already caught two vacuous
+confirm the failure, then restore. This has already caught three vacuous
 assertions that read as correct:
 
 - a `category` filter test that passed with the filter deleted, because run
   alone the store held only matching rows
 - the status-code check in the shared assertion helper, which could be removed
   with every test still green
+- "should advance updatedAt", whose `>=` an `updatedAt` that never moved also
+  satisfied, and which never read back the field its update sent
 
 When asserting a filter, seed both a match **and** a non-match. When asserting a
 listing, assert against data the test created — never global counts.
@@ -52,8 +54,10 @@ worse than no test: it trains people to ignore red, and once red is ignored the
 suite has stopped working regardless of how much it covers. Never make a flaky
 test pass by retrying it — a retry converts a real failure into a slow one.
 Assert what the contract actually promises, not an exact value that is merely
-usual: `createdAt` gets equality because it must not move, `updatedAt` gets `>=`
-because only advancement is guaranteed. Verify with
+usual: `createdAt` gets equality because it must not move, `updatedAt` gets `>`
+after a write placed in a later millisecond, because advancing is the promise
+and two writes in one millisecond may share a stamp. (It got `>=` for a while,
+which an `updatedAt` that never moved also passed.) Verify with
 `--repeat-each=5 --workers=12` before believing a suite is stable; that is how
 the `pageSize` assumption was found. See
 [docs/triage.md](docs/triage.md).

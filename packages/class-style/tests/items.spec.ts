@@ -413,12 +413,18 @@ test.describe('items', { tag: ['@items', '@isolated'] }, () => {
     test('should advance updatedAt but not createdAt', async ({ itemsAsStaff }) => {
       const created = await itemsAsStaff.provision()
 
+      // Two writes in the same millisecond share a timestamp, which is not a
+      // defect — so the update is moved into a later one, and advancing can
+      // then be asserted strictly. `>=` passed with updatedAt never moving.
+      await new Promise((resolve) => setTimeout(resolve, 5))
+
       const updated = await itemsAsStaff.expectItem(
         await itemsAsStaff.update(created.id, { conditionNote: 'scuffed pole' }),
       )
 
+      expect(updated.conditionNote).toBe('scuffed pole')
       expect(updated.createdAt).toBe(created.createdAt)
-      expect(Date.parse(updated.updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt))
+      expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(created.updatedAt))
     })
 
     test('should reject an empty patch body', async ({ itemsAsStaff }) => {

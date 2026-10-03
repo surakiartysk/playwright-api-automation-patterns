@@ -155,28 +155,39 @@ The single largest cause of flakiness is asserting an exact value on something
 that is allowed to change. The fix is not a retry or a `waitFor` — it is
 choosing an oracle that matches what the contract actually guarantees.
 
-| The value                | Bad oracle             | What the contract really promises         |
-| ------------------------ | ---------------------- | ----------------------------------------- |
-| Generated id             | equals a literal       | present, and matches a shape              |
-| `createdAt`              | equals a fixed instant | **unchanged** across an update            |
-| `updatedAt`              | equals a fixed instant | **advances**, or at least doesn't go back |
-| List ordering            | index equality         | contains the expected members             |
-| Totals in a shared store | an absolute number     | your own rows are present                 |
+| The value                | Bad oracle             | What the contract really promises    |
+| ------------------------ | ---------------------- | ------------------------------------ |
+| Generated id             | equals a literal       | present, and matches a shape         |
+| `createdAt`              | equals a fixed instant | **unchanged** across an update       |
+| `updatedAt`              | equals a fixed instant | **advances** past the previous write |
+| List ordering            | index equality         | contains the expected members        |
+| Totals in a shared store | an absolute number     | your own rows are present            |
 
 [`items/update-retire.spec.ts`](../packages/functional-style/tests/items/update-retire.spec.ts)
 is this table in miniature — two timestamps in adjacent lines, deliberately
 asserted differently:
 
 ```ts
+await new Promise((resolve) => setTimeout(resolve, 5))
+// … the update …
 expect(updated.createdAt).toBe(created.createdAt)
-expect(Date.parse(updated.updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt))
+expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(created.updatedAt))
 ```
 
 `createdAt` gets exact equality because the contract promises it never moves —
 that is the behaviour under test. `updatedAt` gets a relational oracle because
 the contract promises only that it advances, and `toBe` would be asserting
-something nobody guaranteed. `>=` rather than `>` because a fast update can land
-in the same millisecond, which is not a defect.
+something nobody guaranteed.
+
+It used to be `>=`, on the grounds that a fast update can land in the same
+millisecond, which is not a defect. True, and it made the oracle useless: an
+`updatedAt` that never moved at all satisfied `>=` too, so the test named
+"should advance updatedAt" passed with the mock never moving it — measured,
+in both packages. The fix keeps the reasoning and moves the precondition
+instead: the update is sent in a later millisecond than the create, so equal
+stamps can no longer be legitimate and `>` cannot flake on them. A short wait
+here is not a `waitFor`: it is not waiting for the system to get somewhere, it
+is making the case the test describes.
 
 The same reasoning is why listings are asserted against rows the test created,
 never against a global count — the store is shared, so a total is a value that

@@ -24,12 +24,18 @@ test.describe('PATCH /items/{id}', { tag: ['@items', '@isolated'] }, () => {
       201,
     )
 
+    // Two writes in the same millisecond share a timestamp, which is not a
+    // defect — so the update is moved into a later one, and advancing can then
+    // be asserted strictly. `>=` passed with updatedAt never moving at all.
+    await new Promise((resolve) => setTimeout(resolve, 5))
+
     const updated = await itemsValidator.expectItem(
       await itemsAsStaff.updateItem(created.id, { conditionNote: 'scuffed pole' }),
     )
 
+    expect(updated.conditionNote).toBe('scuffed pole')
     expect(updated.createdAt).toBe(created.createdAt)
-    expect(Date.parse(updated.updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt))
+    expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(created.updatedAt))
   })
 
   test('should reject an empty patch body', async ({ itemsAsStaff, itemsValidator }) => {

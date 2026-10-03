@@ -32,7 +32,17 @@ illegal state edge added         2 failed        2 failed
 item availability unchecked      1 failed        1 failed
 double-resolve allowed           1 failed        1 failed
 retiring an in-use item          1 failed        1 failed
+transition freezes updatedAt     1 failed        1 failed
+update freezes updatedAt         1 failed        1 failed
+update drops conditionNote       1 failed        1 failed
 ```
+
+The last three rows were 0 and 0 when first run: both suites missed them, which
+the parity row cannot show — equal counts include equal zeros. A later round of
+twenty-three mutations to the mock found those three and two more that neither
+package catches on purpose: the list's ordering and its `totalPages`, which the
+contract does not specify, and so which a test asserting them would be pinning
+an accident of the mock. The other eighteen failed the same tests in both.
 
 ## What the numbers actually say
 
@@ -46,7 +56,7 @@ three of those four rows no longer matched the tree, and nothing noticed.
 | source files                     | 27               | 13          |
 | test files                       | 14               | 5           |
 | source lines                     | 752              | 739         |
-| test lines                       | 1315             | 893         |
+| test lines                       | 1322             | 900         |
 | files touched to add an endpoint | 4                | 1           |
 | imports per spec                 | 3–7              | 3–7         |
 
@@ -57,7 +67,7 @@ Two of these deserve comment because they contradict what is usually claimed.
 a spec needs its error codes, its fixtures, and its helpers either way. The
 grouping moves where things live; it does not remove the need to name them.
 
-**The line difference is mostly test-file structure, not density.** 1315 vs 893
+**The line difference is mostly test-file structure, not density.** 1322 vs 900
 test lines looks decisive until you notice `functional-style` splits items across
 three spec files with a fixture file per service, while `class-style` keeps one
 spec per service. Per assertion the two are close.
