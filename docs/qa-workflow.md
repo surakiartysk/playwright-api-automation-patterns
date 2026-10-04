@@ -162,8 +162,8 @@ _who may run what, against which branch, and who may then see the result_.
 It dispatches **two** suites: this one, and
 `playwright-ui-automation-patterns`, which asks the same question of browser
 tests. Each meets the dashboard at the same three points described below, and
-both workflows declare the same four input names — `style`, `scope`, `workers`
-and `run_id`. That is a contract rather than a coincidence: GitHub rejects a
+both workflows declare the same five input names — `style`, `scope`, `tag`,
+`workers` and `run_id`. That is a contract rather than a coincidence: GitHub rejects a
 dispatch carrying an input a workflow does not declare, and rejects the whole
 request rather than ignoring the extra, so a caller that branched per suite
 would be a second thing to keep in step.
@@ -173,10 +173,17 @@ it names a spec file, because those journeys are grouped by file — so
 `--grep @auth` there would match nothing, which Playwright reports as a
 **success with zero tests**.
 
+`tag` is optional and narrows `scope`: with both set, the run is the tests
+carrying both tags (`items` and `smoke` is the three smoke tests of the items
+service). It defaults to `all`, which adds nothing, so a caller that never heard
+of it dispatches exactly what it did before. A pair that no test carries — `items`
+and `flow`, say — matches nothing, and Playwright fails the run with "No tests
+found" rather than passing it.
+
 They meet at exactly three points, and share no code:
 
 1. **Dispatch.** The dashboard calls `on-demand.yml` with `run_id`, `scope`
-   (the service, or a tag), `style`, and `workers`. Those are this workflow's
+   (the service, or a tag), optionally `tag`, `style`, and `workers`. Those are this workflow's
    input names, not the dashboard's vocabulary, and they do not line up — a
    service goes in `scope`, because `style` selects a package.
 2. **Report upload.** The merged Allure report is written straight into the

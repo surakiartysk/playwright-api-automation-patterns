@@ -28,7 +28,7 @@ on:
         type: choice
         options: [both, functional-style, class-style]
       scope:
-        description: 'Tag to filter by (without @). "all" runs everything.'
+        description: 'Tag to filter by (without @) — a service is a tag too. "all" runs everything.'
         required: true
         default: 'smoke'
         type: choice
@@ -36,6 +36,14 @@ on:
         # there. A tag that is not offered here cannot be run on demand at all.
         options:
           [all, smoke, isolated, flow, items, reservations, maintenance-logs, core, cross-service]
+      tag:
+        description: 'Optional second tag: only tests carrying this one AND the scope. "all" adds no narrowing.'
+        required: false
+        default: 'all'
+        type: choice
+        # The tags that cut across services, not the services themselves —
+        # `check:parity` holds this to the scope list above.
+        options: [all, smoke, isolated, flow, cross-service]
       workers:
         description: 'Parallel workers — drop to 1 to investigate a suspected race'
         required: false
@@ -59,7 +67,7 @@ permissions:
 
 jobs:
   run:
-    name: ${{ github.event.inputs.style || 'both' }} / @${{ github.event.inputs.scope || 'smoke' }}
+    name: ${{ github.event.inputs.style || 'both' }} / @${{ github.event.inputs.scope || 'smoke' }}${{ (github.event.inputs.tag && github.event.inputs.tag != 'all') && format(' + @{0}', github.event.inputs.tag) || '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -83,10 +91,25 @@ jobs:
         run: |
           STYLE="${{ github.event.inputs.style || github.event.client_payload.style || 'both' }}"
           SCOPE="${{ github.event.inputs.scope || github.event.client_payload.scope || 'smoke' }}"
+          TAG="${{ github.event.inputs.tag || github.event.client_payload.tag || 'all' }}"
           WORKERS="${{ github.event.inputs.workers || github.event.client_payload.workers || '4' }}"
           RUN_ID="${{ github.event.inputs.run_id || github.event.client_payload.run_id || '' }}"
 
-          if [ "$SCOPE" = "all" ]; then GREP=""; else GREP="--grep @$SCOPE"; fi
+          # What to grep for, as a pattern rather than as flags: the pattern
+          # for two tags contains parentheses, which the shell would read as
+          # syntax if it were pasted into the command line unquoted. It travels
+          # as data and is quoted where it is used.
+          #
+          # Both tags means a title carrying both. Playwright matches the
+          # pattern as a regular expression against the whole title, and two
+          # lookaheads at the start say "this and that, in either order" —
+          # `--grep @a --grep @b` would say "this or that", which is the
+          # opposite of narrowing. Naming the same tag twice is just that tag.
+          if   [ "$SCOPE" = "all" ] && [ "$TAG" = "all" ]; then PATTERN=""
+          elif [ "$TAG" = "all" ] || [ "$TAG" = "$SCOPE" ]; then PATTERN="@$SCOPE"
+          elif [ "$SCOPE" = "all" ]; then PATTERN="@$TAG"
+          else PATTERN="(?=.*@$SCOPE)(?=.*@$TAG)"
+          fi
 
           # `both` names the two test packages rather than using `-r`.
           #
@@ -109,11 +132,11 @@ jobs:
             *)    FILTER="--filter @gear-rental/$STYLE" ;;
           esac
 
-          echo "grep=$GREP"       >> "$GITHUB_OUTPUT"
+          echo "pattern=$PATTERN"  >> "$GITHUB_OUTPUT"
           echo "filter=$FILTER"   >> "$GITHUB_OUTPUT"
           echo "workers=$WORKERS" >> "$GITHUB_OUTPUT"
           echo "run_id=$RUN_ID"   >> "$GITHUB_OUTPUT"
-          echo "Running $STYLE with scope @$SCOPE on $WORKERS workers"
+          echo "Running $STYLE with scope @$SCOPE, tag $TAG, on $WORKERS workers"
 
       - name: Run tests
         id: run
@@ -129,11 +152,18 @@ jobs:
         # to it, so the earlier `list,json` here silently switched off the
         # `html` and `allure-playwright` reporters playwright.config.ts
         # declares — the report this job claimed to upload was never generated.
+        #
+        # The pattern is passed as an environment variable and quoted where it
+        # is used. Written into the command through `${{ }}` it would be pasted
+        # into the shell's text, and a pattern with parentheses in it is a
+        # syntax error there. `:+` leaves out the flag entirely when there is no
+        # pattern, which is what running everything means.
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: results.json
+          GREP_PATTERN: ${{ steps.opts.outputs.pattern }}
         run: |
           pnpm ${{ steps.opts.outputs.filter }} exec playwright test \
-            ${{ steps.opts.outputs.grep }} \
+            ${GREP_PATTERN:+--grep "$GREP_PATTERN"} \
             --workers=${{ steps.opts.outputs.workers }} \
             --reporter=list,json,allure-playwright || echo "failed=true" >> "$GITHUB_OUTPUT"
 

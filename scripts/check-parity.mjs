@@ -254,6 +254,40 @@ if (unrunnable.length > 0 || emptyScopes.length > 0) {
 console.log(`✓ check:parity — all ${offered.size} tags are runnable from on-demand.yml`)
 
 /**
+ * The second tag has to be a tag the scope list also offers.
+ *
+ * `tag` narrows `scope`: the run is the tests carrying both. A value that is
+ * not a tag matches nothing, and with the two joined by AND the run reports a
+ * failure for tests that never existed — the failure is loud, but it names no
+ * culprit. It must also offer `all` and default to it: GitHub refuses a
+ * `choice` whose default is not one of its options, and `all` is how "no second
+ * tag" is said.
+ */
+const tagMatch = /\n {6}tag:[\s\S]*?default:\s*'([^']*)'[\s\S]*?options:\s*\[([^\]]+)\]/.exec(
+  workflow,
+)
+if (!tagMatch) {
+  console.error('\n✖ check:parity — could not read the tag input in on-demand.yml.\n')
+  process.exit(1)
+}
+const tagDefault = tagMatch[1]
+const tagOptions = tagMatch[2].split(',').map((s) => s.trim())
+const notScopes = tagOptions.filter((o) => o !== 'all' && !offered.has(o))
+if (tagDefault !== 'all' || !tagOptions.includes('all') || notScopes.length > 0) {
+  console.error('\n✖ check:parity — the `tag` input in on-demand.yml is not what it should be.\n')
+  if (tagDefault !== 'all') console.error(`  default is '${tagDefault}'; it must be 'all'`)
+  if (!tagOptions.includes('all')) console.error("  options must include 'all'")
+  if (notScopes.length > 0) {
+    console.error(`  offered but not a scope tag: ${notScopes.join(', ')}`)
+  }
+  console.error('')
+  process.exit(1)
+}
+console.log(
+  `✓ check:parity — the tag input narrows by ${tagOptions.length - 1} tags, all of them scopes`,
+)
+
+/**
  * The per-tag counts the strategy doc quotes must be the counts that exist.
  *
  * These are the numbers a reader checks first, because they are the easiest to
