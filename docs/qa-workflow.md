@@ -197,7 +197,11 @@ They meet at exactly three points, and share no code:
    failed. A red run that never reports leaves a dashboard stuck on "running".
    It runs _after_ the upload and only claims `reportPath` if that succeeded:
    the dashboard trusts the field, so a path pointing at nothing is a report
-   link that 404s.
+   link that 404s. When tests failed it also carries _which_: up to twenty, each
+   with its title, file, tags and the first line of its message (cut, and without
+   terminal colour), plus how many were left out. `.github/scripts/failures.mjs`
+   reads it from the same `results.json` as the totals, and `check:failures`
+   holds it against fixtures shaped like Playwright's output.
 
 All three are inert here by default: they are skipped unless `run_id` is set
 _and_ `DASHBOARD_WEBHOOK_URL` is configured, so a hand-started run — or a fork

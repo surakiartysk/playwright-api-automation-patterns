@@ -201,6 +201,19 @@ jobs:
             out.write(`total=${total}\npassed=${passed}\nfailed=${failed}\nduration=${duration}\n`)
           '
 
+      # Which tests failed and why, for the dashboard's detail row.
+      #
+      # The callback below used to carry totals only, so a run the dashboard knew
+      # had failed could not say which test without opening the whole report.
+      # The summary is bounded (twenty failures, a line of message each) and
+      # read from the same results.json as the totals above. Its own step so a
+      # problem reading it cannot stop the totals from being sent: it is
+      # `continue-on-error`, and the callback treats a missing file as no detail.
+      - name: Collect the failures
+        if: always() && steps.opts.outputs.run_id != ''
+        continue-on-error: true
+        run: node .github/scripts/failures.mjs
+
       # Build the report the dashboard will serve.
       #
       # Both packages' results merge into one report, because the question this
@@ -276,6 +289,16 @@ jobs:
           export SUITE_VERSION
 
           BODY=$(node -e '
+            const { existsSync, readFileSync } = require("fs")
+            const failureDetail = () => {
+              if (!existsSync("failures.json")) return {}
+              try {
+                const { failures, omitted } = JSON.parse(readFileSync("failures.json", "utf8"))
+                return failures?.length ? { failures, failuresOmitted: omitted ?? 0 } : {}
+              } catch {
+                return {}
+              }
+            }
             process.stdout.write(JSON.stringify({
               runId: process.env.RUN_ID,
               status: process.env.STATUS,
@@ -283,6 +306,10 @@ jobs:
               passed: Number(process.env.PASSED || 0),
               failed: Number(process.env.FAILED || 0),
               ...(process.env.DURATION ? { durationMs: Number(process.env.DURATION) } : {}),
+              // Which tests failed, when the step above produced a summary. Sent
+              // only when there is something to say: an older dashboard ignores
+              // the field, and a run with no failures has no list to carry.
+              ...failureDetail(),
               suiteVersion: process.env.SUITE_VERSION || undefined,
               suiteSha: process.env.SUITE_SHA || undefined,
               // Omitted when the upload did not succeed: the dashboard

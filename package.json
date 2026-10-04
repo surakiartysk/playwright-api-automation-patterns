@@ -21,9 +21,10 @@
     "format:check": "prettier --check .",
     "type-check": "pnpm -r type-check",
     "check:parity": "node scripts/check-parity.mjs",
+    "check:failures": "node scripts/check-failures.mjs",
     "allure": "node scripts/allure-report.mjs",
     "allure:open": "pnpm exec allure open allure-report",
-    "verify": "pnpm format:check && pnpm lint && pnpm type-check && pnpm test && pnpm check:parity",
+    "verify": "pnpm format:check && pnpm lint && pnpm type-check && pnpm test && pnpm check:parity && pnpm check:failures",
     "prepare": "husky"
   },
   "devDependencies": {
