@@ -11,6 +11,9 @@ Both cover the same behaviours, run under the same settings, and catch the same
 defects — 111 tests each, verified by mutating the mock and checking that both
 suites fail identically.
 
+Part of [testbydesign.dev](https://testbydesign.dev): the
+[Test Run Dashboard](https://runs.testbydesign.dev) dispatches this suite on demand.
+
 **Version 1.0.0** — complete against `openapi.yaml`, the contract that arbitrates
 both packages. Every run reports this version and its commit sha back to the
 dashboard that dispatched it, so a result months old can still be traced to the
