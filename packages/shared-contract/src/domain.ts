@@ -52,7 +52,7 @@ export const TRANSITIONS: Readonly<
   CONFIRMED: { check_out: 'CHECKED_OUT', cancel: 'CANCELLED' },
   CHECKED_OUT: { return: 'RETURNED' },
   RETURNED: { close: 'CLOSED' },
-  CLOSED: {},
+  CLOSED: { cancel: 'CANCELLED' },
   CANCELLED: {},
 }
 

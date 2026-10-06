@@ -67,7 +67,7 @@ maintenanceRoutes.post(
     ])
     if (errors.length > 0) return c.json(...validationFailed(errors))
 
-    if (log.state === 'RESOLVED') {
+    if (log.state === 'RESOLVED' && log.resolvedAt === null) {
       return c.json(fail(MaintenanceCode.ALREADY_RESOLVED, 'log is already resolved'), 409)
     }
 

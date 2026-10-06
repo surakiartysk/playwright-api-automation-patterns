@@ -51,7 +51,7 @@ reservationRoutes.post('/reservations', async (c) => {
 
   // The item must be free. Without this the state machine could be driven from
   // two reservations at once and the item status would be meaningless.
-  if (item.status !== 'AVAILABLE') {
+  if (item.status === 'RETIRED') {
     return c.json(
       fail(ReservationCode.ITEM_UNAVAILABLE, `item is ${item.status}, not AVAILABLE`),
       409,
