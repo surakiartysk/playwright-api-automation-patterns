@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { APIResponse } from '@playwright/test'
 import { assertResponse } from '@core/ResponseAssert'
+import { codeMessage, fieldMessage, schemaMessage, statusMessage } from '@core/check-message'
 import { expect, test } from '@support/fixtures'
 
 /**
@@ -46,6 +47,16 @@ async function rejects(fn: () => Promise<unknown> | unknown, because: string): P
     threw = true
   }
   expect(threw, because).toBe(true)
+}
+
+/** The message a check failed with. Fails itself if the check did not fail. */
+async function failureOf(fn: () => Promise<unknown> | unknown): Promise<string> {
+  try {
+    await fn()
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+  throw new Error('the check was expected to fail and did not')
 }
 
 test.describe('ResponseAssert', { tag: ['@core', '@isolated'] }, () => {
@@ -152,6 +163,68 @@ test.describe('ResponseAssert', { tag: ['@core', '@isolated'] }, () => {
       const assert = await assertResponse(fakeResponse(422, { ...body, data: { fields: [] } }))
 
       await rejects(() => assert.failsValidation(), 'a 422 must name at least one offending field')
+    })
+  })
+
+  /**
+   * What a check calls itself, in the report and when it fails.
+   *
+   * Playwright names an assertion's step after its message whether it passed or
+   * not, so a message written for the failure sat in the report as a green step
+   * that read like an error, with the whole body in its title. These hold the
+   * failure down to what the dashboard's one line needs, and the passing name
+   * to a claim.
+   */
+  test.describe('messages', () => {
+    test('should say what was expected and what came back when the status is wrong', async () => {
+      const message = await failureOf(async () =>
+        (await assertResponse(fakeResponse(200, okBody({ id: 'x' })))).succeedsWith(anyData, 201),
+      )
+
+      expect(message).toContain('expected 201, got 200 ("success")')
+    })
+
+    test('should keep the response body out of a failure message', async () => {
+      const message = await failureOf(async () =>
+        (await assertResponse(fakeResponse(200, okBody({ id: 'x' })))).succeedsWith(anyData, 201),
+      )
+
+      // The body is attached to the call, pretty-printed; a copy here is what
+      // made the one-line summary an unreadable run of JSON.
+      expect(message).not.toContain('{')
+      expect(message).not.toContain('"id"')
+    })
+
+    test('should name the business code that came back when it is the wrong one', async () => {
+      const message = await failureOf(async () =>
+        (await assertResponse(fakeResponse(403, errBody('AUTH_FORBIDDEN')))).failsWith(
+          403,
+          'NOT_FOUND',
+        ),
+      )
+
+      expect(message).toContain("expected business code 'NOT_FOUND', got 'AUTH_FORBIDDEN'")
+    })
+
+    test('should word a check that holds as a claim, not as an error', () => {
+      const names = [
+        statusMessage(201, 201, okBody({ id: 'x' })),
+        schemaMessage('response', true, ''),
+        codeMessage('NOT_FOUND', 'NOT_FOUND'),
+      ]
+
+      expect(names[0]).toBe('status is 201')
+      for (const name of names) expect(name).not.toMatch(/expected|did not|body:|failed/)
+    })
+
+    // The Allure categories in playwright.config.ts match on these phrases and
+    // quietly collect nothing when one changes, which is how a reworded message
+    // would go unnoticed.
+    test('should keep the wording the failure categories match on', () => {
+      expect(statusMessage(201, 200, null)).toMatch(/expected \d+, got \d+/)
+      expect(schemaMessage('response', false, '  • id: Required')).toMatch(/did not match schema/)
+      expect(codeMessage('NOT_FOUND', 'AUTH_FORBIDDEN')).toMatch(/expected business code/)
+      expect(fieldMessage('name', ['sku'])).toMatch(/validation error naming/)
     })
   })
 })

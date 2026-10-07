@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { said } from '@core/check-message'
 import type { ItemsClient } from '@services/items/ItemsClient'
 import type { MaintenanceLogsClient } from '@services/maintenance-logs/MaintenanceLogsClient'
 import type { MaintenanceLog } from '@services/maintenance-logs/types'
@@ -52,12 +53,23 @@ async function provision({
   // workers checking gear out at once, "most recent" belongs to whoever was
   // last, which is a race dressed up as a lookup.
   const response = await maintenance.listLogs({ reservationId: reservation.id })
-  expect(response.status(), 'provisioning: could not list maintenance logs').toBe(200)
+  expect(
+    response.status(),
+    said(
+      response.status() === 200,
+      'maintenance logs listed',
+      'provisioning: could not list maintenance logs',
+    ),
+  ).toBe(200)
 
   const { logs } = (await response.json()).data as { logs: MaintenanceLog[] }
   expect(
     logs,
-    `provisioning: check_out did not open a log for reservation ${reservation.id}`,
+    said(
+      logs.length === 1,
+      `check_out opened a log for reservation ${reservation.id}`,
+      `provisioning: check_out did not open a log for reservation ${reservation.id}`,
+    ),
   ).toHaveLength(1)
 
   return { log: logs[0]!, reservation, itemId }

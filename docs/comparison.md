@@ -14,7 +14,7 @@ were fixed first and checked afterwards.
 | Control               | How it was enforced                                                                                                                             |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Same behaviours       | Test names diffed between packages. Two auth cases were missing from `class-style` and were added.                                              |
-| Same test count       | 111 each.                                                                                                                                       |
+| Same test count       | 116 each.                                                                                                                                       |
 | Same settings         | Identical `workers`, `fullyParallel`, and `retries`.                                                                                            |
 | No shared code        | `class-style` imports nothing from `functional-style` — only the contract package. Sharing a base would make this one style with two spellings. |
 | Same defect detection | Every mutation to the mock produces the **same failure count in both packages**.                                                                |
@@ -53,10 +53,10 @@ three of those four rows no longer matched the tree, and nothing noticed.
 
 |                                  | functional-style | class-style |
 | -------------------------------- | ---------------- | ----------- |
-| source files                     | 27               | 13          |
+| source files                     | 28               | 14          |
 | test files                       | 14               | 5           |
-| source lines                     | 752              | 739         |
-| test lines                       | 1322             | 900         |
+| source lines                     | 785              | 774         |
+| test lines                       | 1402             | 948         |
 | files touched to add an endpoint | 4                | 1           |
 | imports per spec                 | 3–7              | 3–7         |
 
@@ -67,7 +67,7 @@ Two of these deserve comment because they contradict what is usually claimed.
 a spec needs its error codes, its fixtures, and its helpers either way. The
 grouping moves where things live; it does not remove the need to name them.
 
-**The line difference is mostly test-file structure, not density.** 1322 vs 900
+**The line difference is mostly test-file structure, not density.** 1402 vs 948
 test lines looks decisive until you notice `functional-style` splits items across
 three spec files with a fixture file per service, while `class-style` keeps one
 spec per service. Per assertion the two are close.

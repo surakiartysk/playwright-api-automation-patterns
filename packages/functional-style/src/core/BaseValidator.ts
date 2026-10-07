@@ -1,6 +1,7 @@
 import type { APIResponse } from '@playwright/test'
 import { expect } from '@playwright/test'
 import type { z } from 'zod'
+import { codeMessage, fieldMessage, schemaMessage, statusMessage } from './check-message'
 import { errorEnvelope, successEnvelope, validationErrorEnvelope } from './schemas'
 import type { ApiResponse, FieldError } from './types'
 
@@ -35,13 +36,14 @@ export class BaseValidator {
   ): Promise<z.infer<S>> {
     const body: unknown = await response.json()
 
-    expect(
-      response.status(),
-      `expected ${expectedStatus}, got ${response.status()} — body: ${JSON.stringify(body)}`,
-    ).toBe(expectedStatus)
+    expect(response.status(), statusMessage(expectedStatus, response.status(), body)).toBe(
+      expectedStatus,
+    )
 
     const parsed = successEnvelope(dataSchema).safeParse(body)
-    expect(parsed.success, `response did not match schema:\n${formatIssues(parsed)}`).toBe(true)
+    expect(parsed.success, schemaMessage('response', parsed.success, formatIssues(parsed))).toBe(
+      true,
+    )
 
     return (parsed.success ? parsed.data.data : undefined) as z.infer<S>
   }
@@ -59,15 +61,15 @@ export class BaseValidator {
   ): Promise<ApiResponse<unknown>> {
     const body: unknown = await response.json()
 
-    expect(
-      response.status(),
-      `expected ${expectedStatus}, got ${response.status()} — body: ${JSON.stringify(body)}`,
-    ).toBe(expectedStatus)
+    expect(response.status(), statusMessage(expectedStatus, response.status(), body)).toBe(
+      expectedStatus,
+    )
 
     const parsed = errorEnvelope.safeParse(body)
-    expect(parsed.success, `error envelope did not match schema:\n${formatIssues(parsed)}`).toBe(
-      true,
-    )
+    expect(
+      parsed.success,
+      schemaMessage('error envelope', parsed.success, formatIssues(parsed)),
+    ).toBe(true)
 
     // The expect above throws when parsing failed, so this branch only runs on
     // a validated body — returning the parsed value rather than re-casting the
@@ -77,7 +79,7 @@ export class BaseValidator {
       : (body as ApiResponse<unknown>)
 
     if (expectedCode) {
-      expect(envelope.code, `expected business code '${expectedCode}'`).toBe(expectedCode)
+      expect(envelope.code, codeMessage(expectedCode, envelope.code)).toBe(expectedCode)
     }
     return envelope
   }
@@ -95,20 +97,17 @@ export class BaseValidator {
   ): Promise<FieldError[]> {
     const body: unknown = await response.json()
 
-    expect(
-      response.status(),
-      `expected 422, got ${response.status()} — body: ${JSON.stringify(body)}`,
-    ).toBe(422)
+    expect(response.status(), statusMessage(422, response.status(), body)).toBe(422)
 
     const parsed = validationErrorEnvelope.safeParse(body)
-    expect(parsed.success, `422 body did not match schema:\n${formatIssues(parsed)}`).toBe(true)
+    expect(parsed.success, schemaMessage('422 body', parsed.success, formatIssues(parsed))).toBe(
+      true,
+    )
 
     const fields = parsed.success ? parsed.data.data.fields : []
     if (expectedField) {
-      expect(
-        fields.map((f) => f.field),
-        `expected a validation error naming '${expectedField}'`,
-      ).toContain(expectedField)
+      const named = fields.map((f) => f.field)
+      expect(named, fieldMessage(expectedField, named)).toContain(expectedField)
     }
     return fields
   }

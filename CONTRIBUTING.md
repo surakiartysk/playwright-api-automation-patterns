@@ -45,8 +45,8 @@ Four axes. Every test carries one `kind` and one `domain`; `@smoke` and
 
 ```
 importance    @smoke (6)
-kind          @isolated (92)  |  @flow (19)
-domain        @items (46)  |  @reservations (37)  |  @maintenance-logs (13)  |  @core (15)
+kind          @isolated (97)  |  @flow (19)
+domain        @items (46)  |  @reservations (37)  |  @maintenance-logs (13)  |  @core (20)
 scope         @cross-service (5) — orthogonal to the rest
 ```
 
@@ -62,7 +62,7 @@ scope         @cross-service (5) — orthogonal to the rest
 
 `@regression` would mean "everything that is not smoke", which
 `--grep-invert @smoke` already expresses. It earns its place in a suite large
-enough to need a nightly subset; at 111 tests running in about five seconds
+enough to need a nightly subset; at 116 tests running in about five seconds
 there is nothing to subset.
 
 Priority tags (`@high` / `@medium` / `@low`) decay: nobody labels their own
