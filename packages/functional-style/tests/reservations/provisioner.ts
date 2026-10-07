@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { said } from '@core/check-message'
 import type { ReservationState, TransitionAction } from '@gear-rental/shared-contract'
 import type { ItemsClient } from '@services/items/ItemsClient'
 import type { ReservationsClient } from '@services/reservations/ReservationsClient'
@@ -68,24 +69,46 @@ async function provision({
 }: ProvisionOptions): Promise<ProvisionedReservation> {
   const itemPayload = buildItemPayload()
   const itemResponse = await items.createItem(itemPayload)
-  expect(itemResponse.status(), 'provisioning: item creation failed').toBe(201)
+  expect(
+    itemResponse.status(),
+    said(itemResponse.status() === 201, 'item created', 'provisioning: item creation failed'),
+  ).toBe(201)
   const item = (await itemResponse.json()).data as { id: string }
 
   const { startDate, endDate } = futureDateRange()
   const created = await reservations.createReservation({ itemId: item.id, startDate, endDate })
-  expect(created.status(), 'provisioning: reservation creation failed').toBe(201)
+  expect(
+    created.status(),
+    said(
+      created.status() === 201,
+      'reservation created',
+      'provisioning: reservation creation failed',
+    ),
+  ).toBe(201)
   let reservation = (await created.json()).data as Reservation
 
   for (const action of PATH_TO[state]) {
     const response = await reservations.transition(reservation.id, action)
+    const accepted = response.status() === 200
     expect(
       response.status(),
-      `provisioning: '${action}' failed from '${reservation.state}' — ${await response.text()}`,
+      said(
+        accepted,
+        `'${action}' accepted from '${reservation.state}'`,
+        `provisioning: '${action}' failed from '${reservation.state}' — ${accepted ? '' : await response.text()}`,
+      ),
     ).toBe(200)
     reservation = (await response.json()).data as Reservation
   }
 
-  expect(reservation.state, 'provisioning: ended in the wrong state').toBe(state)
+  expect(
+    reservation.state,
+    said(
+      reservation.state === state,
+      `reservation reached ${state}`,
+      'provisioning: ended in the wrong state',
+    ),
+  ).toBe(state)
 
   return { reservation, itemId: item.id, itemSku: itemPayload.sku }
 }

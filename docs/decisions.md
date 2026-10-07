@@ -391,7 +391,7 @@ What Allure adds that the built-in report does not:
 
 **The labels are derived, not annotated.** Tags already exist for filtering
 (`--grep @smoke`), so an auto fixture reads them and stamps the Allure labels.
-Annotating all 222 tests by hand — 111 in each package — would be a second
+Annotating all 232 tests by hand — 116 in each package — would be a second
 source of truth that drifts the first time someone forgets one, and specs stay
 unaware of the reporter entirely.
 
