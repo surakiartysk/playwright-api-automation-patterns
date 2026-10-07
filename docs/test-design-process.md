@@ -37,6 +37,7 @@ is real here too. It is handled by making drift _fail a build_ instead:
 | A skipped test counted as a covered behaviour   | `check:parity`          |
 | A tag documented but used by nothing            | `check:parity`          |
 | A tag used but not runnable on demand           | `check:parity`          |
+| A `both` run that skips a style once one is red | `check:parity`          |
 | The advertised test count going stale           | `check:parity`          |
 | The measurement table in comparison.md          | `check:parity`          |
 | The contract and the mock disagreeing           | review only — see below |
