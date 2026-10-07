@@ -8,7 +8,7 @@ The same API suite built twice, so the approaches can be read side by side:
   assertions, and data builder grouped into one context per service.
 
 Both cover the same behaviours, run under the same settings, and catch the same
-defects — 111 tests each, verified by mutating the mock and checking that both
+defects — 116 tests each, verified by mutating the mock and checking that both
 suites fail identically.
 
 Part of [testbydesign.dev](https://testbydesign.dev): the

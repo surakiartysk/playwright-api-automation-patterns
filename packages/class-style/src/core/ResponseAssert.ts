@@ -1,6 +1,7 @@
 import type { APIResponse } from '@playwright/test'
 import { expect } from '@playwright/test'
 import type { z } from 'zod'
+import { codeMessage, fieldMessage, schemaMessage, statusMessage } from './check-message'
 import { errorEnvelope, successEnvelope, validationErrorEnvelope } from './schemas'
 import type { ApiResponse, FieldError } from './types'
 
@@ -35,10 +36,7 @@ export class ResponseAssert {
   }
 
   hasStatus(expected: number): this {
-    expect(
-      this.status,
-      `expected ${expected}, got ${this.status} — body: ${JSON.stringify(this.body)}`,
-    ).toBe(expected)
+    expect(this.status, statusMessage(expected, this.status, this.body)).toBe(expected)
     return this
   }
 
@@ -47,7 +45,9 @@ export class ResponseAssert {
     this.hasStatus(expectedStatus)
 
     const parsed = successEnvelope(dataSchema).safeParse(this.body)
-    expect(parsed.success, `response did not match schema:\n${formatIssues(parsed)}`).toBe(true)
+    expect(parsed.success, schemaMessage('response', parsed.success, formatIssues(parsed))).toBe(
+      true,
+    )
 
     return (parsed.success ? parsed.data.data : undefined) as z.infer<S>
   }
@@ -57,13 +57,14 @@ export class ResponseAssert {
     this.hasStatus(expectedStatus)
 
     const parsed = errorEnvelope.safeParse(this.body)
-    expect(parsed.success, `error envelope did not match schema:\n${formatIssues(parsed)}`).toBe(
-      true,
-    )
+    expect(
+      parsed.success,
+      schemaMessage('error envelope', parsed.success, formatIssues(parsed)),
+    ).toBe(true)
 
     const envelope = (parsed.success ? parsed.data : this.body) as ApiResponse<unknown>
     if (expectedCode) {
-      expect(envelope.code, `expected business code '${expectedCode}'`).toBe(expectedCode)
+      expect(envelope.code, codeMessage(expectedCode, envelope.code)).toBe(expectedCode)
     }
     return envelope
   }
@@ -73,14 +74,14 @@ export class ResponseAssert {
     this.hasStatus(422)
 
     const parsed = validationErrorEnvelope.safeParse(this.body)
-    expect(parsed.success, `422 body did not match schema:\n${formatIssues(parsed)}`).toBe(true)
+    expect(parsed.success, schemaMessage('422 body', parsed.success, formatIssues(parsed))).toBe(
+      true,
+    )
 
     const fields = parsed.success ? parsed.data.data.fields : []
     if (expectedField) {
-      expect(
-        fields.map((f) => f.field),
-        `expected a validation error naming '${expectedField}'`,
-      ).toContain(expectedField)
+      const named = fields.map((f) => f.field)
+      expect(named, fieldMessage(expectedField, named)).toContain(expectedField)
     }
     return fields
   }
