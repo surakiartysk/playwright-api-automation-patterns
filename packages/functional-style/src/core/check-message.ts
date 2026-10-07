@@ -59,3 +59,22 @@ export function fieldMessage(field: string, named: string[]): string {
     `expected a validation error naming '${field}', got ${named.length > 0 ? named.map((n) => `'${n}'`).join(', ') : 'none'}`,
   )
 }
+
+/**
+ * A list that has to match, said as a claim while it does and as the two lists
+ * when it does not.
+ *
+ * The test of the transition table compares what the table allows with what the
+ * state machine specifies, one state at a time, and its message was only which
+ * state it was looking at. The dashboard shows the first line of a failure and
+ * Playwright puts "Expected" and "Received" on the lines after it, so the
+ * panel read "legal actions from CLOSED" and nothing about what was wrong.
+ */
+export function listMessage(label: string, expected: string[], actual: string[]): string {
+  const shown = (items: string[]) => `[${items.join(', ')}]`
+  return said(
+    expected.length === actual.length && expected.every((item, i) => item === actual[i]),
+    `${label} are ${shown(expected)}`,
+    `${label}: expected ${shown(expected)}, got ${shown(actual)}`,
+  )
+}

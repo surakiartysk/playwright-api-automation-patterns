@@ -14,8 +14,8 @@ Every test here is one of two kinds.
 
 | Level                    | Answers                                              | Cost                  | Here      |
 | ------------------------ | ---------------------------------------------------- | --------------------- | --------- |
-| **Isolated** `@isolated` | Does this endpoint honour its contract?              | Fast, easy to debug   | 97 of 116 |
-| **Flow** `@flow`         | Does a chain of endpoints reach the right end state? | Slower, catches seams | 19 of 116 |
+| **Isolated** `@isolated` | Does this endpoint honour its contract?              | Fast, easy to debug   | 99 of 118 |
+| **Flow** `@flow`         | Does a chain of endpoints reach the right end state? | Slower, catches seams | 19 of 118 |
 
 Isolated tests find bugs faster and with less noise, so they come first.
 Flows are promoted from the handful of journeys that actually matter — here,
@@ -39,7 +39,7 @@ in this suite where a defect was found or would have been expensive to miss.
 | **Authorization per role**    | Over-permission is a security defect, not a bug                 | `TRANSITION_ROLES`; `AUTH_FORBIDDEN` asserted per guarded action    |
 | **Cross-entity dependency**   | Breaks only in combination — invisible to single-endpoint tests | `maintenance-logs` cannot be created directly; `@cross-service` (5) |
 | **Filters and pagination**    | A filter that silently matches everything reads as passing      | `items` — every filter seeds a match **and** a non-match            |
-| **Shared assertion helpers**  | If the helper stops checking, every test using it goes vacuous  | `@core` (20) — the helpers' own tests, and sign-in's two            |
+| **Shared assertion helpers**  | If the helper stops checking, every test using it goes vacuous  | `@core` (22) — the helpers' own tests, and sign-in's two            |
 
 Deliberately deprioritised: response-field ordering, exhaustive optional-field
 permutations that share one validation path, and free-text `maxLength` with no
@@ -177,7 +177,7 @@ question at a different moment:
 A tier is only worth having when running the tier below it _saves something_ —
 almost always time. With many services and a suite measured in minutes, the gap
 between "verify the deploy" and "run everything" is real, and `@acceptance`
-earns its place by filling it. Here the full suite is **116 tests in about five
+earns its place by filling it. Here the full suite is **118 tests in about five
 seconds**. There is no time to save, so a middle tier would be a label that
 sorts tests without ever changing what anyone runs.
 

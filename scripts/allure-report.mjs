@@ -27,6 +27,8 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const MERGED = join(ROOT, 'allure-results')
 const REPORT = join(ROOT, 'allure-report')
 const HISTORY = join(ROOT, 'allure-history.json')
+const CATEGORIES = join(ROOT, 'allure-categories.json')
+const CONFIG = join(ROOT, 'allure-config.generated.json')
 
 const PACKAGES = ['functional-style', 'class-style']
 
@@ -100,6 +102,26 @@ if (found === 0) {
 console.log(`\nMerged ${found} result files from ${PACKAGES.length} packages.`)
 
 /**
+ * The failure categories, handed to Allure through its own config.
+ *
+ * Allure 3 reads categories from its config, not from a `categories.json` in the
+ * results as Allure 2 did: with the file in the results, the report was
+ * unchanged. `playwright.config.ts` passes the same list to the reporter, which
+ * writes that file, so a run that used the config's reporter carried them to a
+ * place nothing reads; and a run started from the dashboard names its reporter
+ * on the command line, which replaces the config's list and carries nothing.
+ * Either way every failure fell into Allure's own "Product errors" bucket, and
+ * the taxonomy in docs/triage.md was not applied to any report anyone opened.
+ *
+ * Written from the one file both package configs import, to a file that is not
+ * committed, so the list has one source.
+ */
+writeFileSync(
+  CONFIG,
+  `${JSON.stringify({ categories: JSON.parse(readFileSync(CATEGORIES, 'utf8')) }, null, 2)}\n`,
+)
+
+/**
  * `awesome` is Allure 3's UI. The three-level Behaviors tree
  * (epic → feature → story) is the reason for it over the classic report, which
  * flattens that into one list.
@@ -131,6 +153,8 @@ execFileSync(
     'allure-results',
     '-o',
     'allure-report',
+    '--config',
+    CONFIG,
     '--name',
     'Gear Rental API — both styles',
     '--group-by',

@@ -4,6 +4,7 @@ import {
   allowedActions,
 } from '@gear-rental/shared-contract'
 import type { ReservationState, TransitionAction } from '@gear-rental/shared-contract'
+import { listMessage } from '@core/check-message'
 import { CommonError } from '@core/schemas'
 import { ItemError } from '@services/items/ItemsContext'
 import { ReservationError } from '@services/reservations/ReservationsContext'
@@ -127,8 +128,10 @@ test.describe('reservations', { tag: ['@reservations'] }, () => {
   test.describe('state guards', { tag: '@isolated' }, () => {
     test('the shipped transition table matches the specified machine', () => {
       for (const state of RESERVATION_STATES) {
-        expect(allowedActions(state).slice().sort(), `legal actions from ${state}`).toEqual(
-          EXPECTED_LEGAL[state].slice().sort(),
+        const allowed = allowedActions(state).slice().sort()
+        const specified = EXPECTED_LEGAL[state].slice().sort()
+        expect(allowed, listMessage(`legal actions from ${state}`, specified, allowed)).toEqual(
+          specified,
         )
       }
       expect(illegalPairs.length).toBe(19)
