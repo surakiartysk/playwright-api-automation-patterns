@@ -288,6 +288,33 @@ console.log(
 )
 
 /**
+ * A `both` run has to run both, whichever one fails first.
+ *
+ * pnpm stops a multi-package `exec` at the first package that fails, so a red
+ * functional-style run never started class-style. Nothing errored: the job
+ * went red for the right reason, the dashboard recorded 111 tests instead of
+ * 222, and the report held one style. A run that exists to be the evidence
+ * that something once passed or failed cannot lose half of it that way, and
+ * the only symptom is a total that is not what it was the time before.
+ *
+ * Read from the `both` branch of the filter rather than from anywhere in the
+ * file, so a `--no-bail` left in a comment does not satisfy it.
+ */
+const bothFilter = /\n\s*both\) FILTER="([^"]*)"/.exec(workflow)
+if (!bothFilter) {
+  console.error('\n✖ check:parity — could not read the `both` filter in on-demand.yml.\n')
+  process.exit(1)
+}
+if (!/(^|\s)--no-bail(\s|$)/.test(bothFilter[1])) {
+  console.error('\n✖ check:parity — a `both` run in on-demand.yml can skip a style.\n')
+  console.error(`  filter: ${bothFilter[1]}`)
+  console.error('  → pnpm stops at the first package that fails, so when one style is red the')
+  console.error('    other never runs. Add `--no-bail` to the filter.\n')
+  process.exit(1)
+}
+console.log('✓ check:parity — a `both` run runs both styles even when the first one fails')
+
+/**
  * The per-tag counts the strategy doc quotes must be the counts that exist.
  *
  * These are the numbers a reader checks first, because they are the easiest to
