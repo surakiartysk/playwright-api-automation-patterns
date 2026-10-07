@@ -122,7 +122,9 @@ Two details worth knowing:
   check. It also holds the documented counts, the tag table, and
   `on-demand.yml`'s scope list against the suite itself — a tag that no
   dropdown offers is a slice nobody can run, which is how `@cross-service`
-  went five tests deep and unreachable. This has already caught two real gaps.
+  went five tests deep and unreachable. It also checks that a `both` dispatch
+  carries `--no-bail`, because pnpm stops at the first red package and the
+  second style would never run. This has already caught two real gaps.
   It is in `pnpm verify` too — it was CI-only for a while, which made `verify`
   a weaker gate than the phrase "everything CI runs" promised. It goes last
   because it shells out to `playwright --list`, so it wants the install the

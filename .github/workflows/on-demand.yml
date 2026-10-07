@@ -127,8 +127,14 @@ jobs:
           # `--sequential`: both packages start their own mock on port 4010, so
           # running them at once fails the second with EADDRINUSE before any
           # test runs. (`exec` has no `--sequential`; this is its spelling.)
+          #
+          # `--no-bail` because pnpm stops at the first package that fails. A
+          # red functional-style run then never started class-style: the
+          # dashboard recorded 111 tests for a `both` run, the report held one
+          # style, and nothing said the other had not run. Seen on a real
+          # dispatch of the demo-failing branch.
           case "$STYLE" in
-            both) FILTER="--workspace-concurrency=1 --filter @gear-rental/functional-style --filter @gear-rental/class-style" ;;
+            both) FILTER="--no-bail --workspace-concurrency=1 --filter @gear-rental/functional-style --filter @gear-rental/class-style" ;;
             *)    FILTER="--filter @gear-rental/$STYLE" ;;
           esac
 
