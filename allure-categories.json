@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Schema mismatch",
+    "messageRegex": ".*did not match schema.*",
+    "matchedStatuses": ["failed"]
+  },
+  {
+    "name": "Unexpected HTTP status",
+    "messageRegex": ".*expected \\d+, got \\d+.*",
+    "matchedStatuses": ["failed"]
+  },
+  {
+    "name": "Unexpected business code",
+    "messageRegex": ".*expected business code.*",
+    "matchedStatuses": ["failed"]
+  },
+  {
+    "name": "Validation error named the wrong field",
+    "messageRegex": ".*validation error naming.*",
+    "matchedStatuses": ["failed"]
+  },
+  {
+    "name": "Test infrastructure",
+    "messageRegex": ".*ECONNREFUSED.*|.*ETIMEDOUT.*|.*webServer.*|.*spawn.*ENOENT.*",
+    "matchedStatuses": ["failed", "broken"]
+  }
+]

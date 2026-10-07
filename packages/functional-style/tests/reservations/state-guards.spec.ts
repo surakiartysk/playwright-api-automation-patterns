@@ -4,6 +4,7 @@ import {
   allowedActions,
 } from '@gear-rental/shared-contract'
 import type { ReservationState, TransitionAction } from '@gear-rental/shared-contract'
+import { listMessage } from '@core/check-message'
 import { provisionReservation } from './provisioner'
 import { expect, test } from './fixtures'
 
@@ -51,8 +52,10 @@ test.describe('reservation state guards', { tag: ['@reservations', '@isolated'] 
     // widened table would only ever cause a generated case to vanish — and a
     // test that disappears is a test that cannot fail.
     for (const state of RESERVATION_STATES) {
-      expect(allowedActions(state).slice().sort(), `legal actions from ${state}`).toEqual(
-        EXPECTED_LEGAL[state].slice().sort(),
+      const allowed = allowedActions(state).slice().sort()
+      const specified = EXPECTED_LEGAL[state].slice().sort()
+      expect(allowed, listMessage(`legal actions from ${state}`, specified, allowed)).toEqual(
+        specified,
       )
     }
 

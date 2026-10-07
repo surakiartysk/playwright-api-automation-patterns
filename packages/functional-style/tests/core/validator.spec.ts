@@ -1,7 +1,14 @@
 import { z } from 'zod'
 import type { APIResponse } from '@playwright/test'
 import { BaseValidator } from '@core/BaseValidator'
-import { codeMessage, fieldMessage, schemaMessage, statusMessage } from '@core/check-message'
+import {
+  codeMessage,
+  fieldMessage,
+  listMessage,
+  schemaMessage,
+  statusMessage,
+} from '@core/check-message'
+import categories from '../../../../allure-categories.json' with { type: 'json' }
 import { expect, test } from '@fixtures/base'
 
 /**
@@ -223,14 +230,46 @@ test.describe('BaseValidator', { tag: ['@core', '@isolated'] }, () => {
       for (const name of names) expect(name).not.toMatch(/expected|did not|body:|failed/)
     })
 
-    // The Allure categories in playwright.config.ts match on these phrases and
-    // quietly collect nothing when one changes, which is how a reworded message
-    // would go unnoticed.
+    test('should say what was expected and what came back when a list differs', () => {
+      expect(listMessage('legal actions from CLOSED', [], ['cancel'])).toBe(
+        'legal actions from CLOSED: expected [], got [cancel]',
+      )
+      expect(listMessage('legal actions from OPEN', ['close', 'return'], ['return'])).toBe(
+        'legal actions from OPEN: expected [close, return], got [return]',
+      )
+      // The callers sort both sides, so order is part of what the helper compares.
+      expect(listMessage('legal actions from OPEN', ['close', 'return'], ['return', 'close'])).toBe(
+        'legal actions from OPEN: expected [close, return], got [return, close]',
+      )
+    })
+
+    test('should word a list that matches as a claim, not as an error', () => {
+      expect(listMessage('legal actions from OPEN', ['close', 'return'], ['close', 'return'])).toBe(
+        'legal actions from OPEN are [close, return]',
+      )
+      expect(listMessage('legal actions from CLOSED', [], [])).toBe(
+        'legal actions from CLOSED are []',
+      )
+    })
+
+    // The failure categories (allure-categories.json, applied to every report)
+    // match on these phrases and quietly collect nothing when one changes, which
+    // is how a reworded message would go unnoticed. Held against the file itself,
+    // so it is the categories that are tested and not a copy of their regexes.
     test('should keep the wording the failure categories match on', () => {
-      expect(statusMessage(201, 200, null)).toMatch(/expected \d+, got \d+/)
-      expect(schemaMessage('response', false, '  • id: Required')).toMatch(/did not match schema/)
-      expect(codeMessage('NOT_FOUND', 'AUTH_FORBIDDEN')).toMatch(/expected business code/)
-      expect(fieldMessage('name', ['sku'])).toMatch(/validation error naming/)
+      const categoryOf = (message: string) =>
+        categories.filter((c) => new RegExp(c.messageRegex).test(message)).map((c) => c.name)
+
+      expect(categoryOf(statusMessage(201, 200, null))).toEqual(['Unexpected HTTP status'])
+      expect(categoryOf(schemaMessage('response', false, '  • id: Required'))).toEqual([
+        'Schema mismatch',
+      ])
+      expect(categoryOf(codeMessage('NOT_FOUND', 'AUTH_FORBIDDEN'))).toEqual([
+        'Unexpected business code',
+      ])
+      expect(categoryOf(fieldMessage('name', ['sku']))).toEqual([
+        'Validation error named the wrong field',
+      ])
     })
   })
 })

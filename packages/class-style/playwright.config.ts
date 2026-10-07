@@ -1,3 +1,4 @@
+import categories from '../../allure-categories.json' with { type: 'json' }
 import { defineConfig } from '@playwright/test'
 
 /**
@@ -50,51 +51,25 @@ export default defineConfig({
         resultsDir: 'allure-results',
         detail: false,
         /**
-         * Failure categories — the triage taxonomy, applied automatically.
+         * Failure categories — the triage taxonomy, applied automatically. The list
+         * is `allure-categories.json` at the repository root, shared by both
+         * packages and by `scripts/allure-report.mjs`, which writes it into the merged
+         * results: a run started from the dashboard names its reporter on the command
+         * line, so this config's reporter options never reach it.
          *
          * Allure buckets every failure by matching its message, so a red run
          * arrives already sorted into "twelve schema mismatches" rather than
          * twelve separate investigations. The regexes match what
          * BaseValidator and ResponseAssert actually throw; if a message there
          * is reworded, the category stops matching and quietly collects
-         * nothing — which is why each one names its source.
+         * nothing — which is why the validator spec holds each phrase against
+         * this file.
          *
          * The buckets deliberately mirror docs/triage.md: infrastructure
          * first (it is the cheapest to rule out), then our own assertions,
          * then a genuine contract mismatch.
          */
-        categories: [
-          {
-            // BaseValidator / ResponseAssert: `response did not match schema:`
-            name: 'Schema mismatch',
-            messageRegex: '.*did not match schema.*',
-            matchedStatuses: ['failed'],
-          },
-          {
-            // `expected <n>, got <n> — body: ...`
-            name: 'Unexpected HTTP status',
-            messageRegex: '.*expected \\d+, got \\d+.*',
-            matchedStatuses: ['failed'],
-          },
-          {
-            // `expected business code 'X'`
-            name: 'Unexpected business code',
-            messageRegex: '.*expected business code.*',
-            matchedStatuses: ['failed'],
-          },
-          {
-            // `expected a validation error naming 'field'`
-            name: 'Validation error named the wrong field',
-            messageRegex: '.*validation error naming.*',
-            matchedStatuses: ['failed'],
-          },
-          {
-            // The mock never started, or died mid-run. Not a test failure.
-            name: 'Test infrastructure',
-            messageRegex: '.*ECONNREFUSED.*|.*ETIMEDOUT.*|.*webServer.*|.*spawn.*ENOENT.*',
-            matchedStatuses: ['failed', 'broken'],
-          },
-        ],
+        categories,
       },
     ],
   ],
