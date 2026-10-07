@@ -33,3 +33,4 @@ results.json
 allure-results/
 allure-report/
 allure-history.json
+allure-config.generated.json
