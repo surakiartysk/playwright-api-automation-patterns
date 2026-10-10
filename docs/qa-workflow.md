@@ -51,12 +51,14 @@ they are separate workflows rather than one with branching.
 
 ### The self-service part
 
-The **On-demand** workflow takes four inputs: which style, which tag, how many
-workers, and a caller's run id. The first three are the questions asked during
-triage:
+The **On-demand** workflow takes five inputs: which style, which tag, an
+optional second tag, how many workers, and a caller's run id. The first four are
+the questions asked during triage:
 
 - _which style_ — is this a bug in the API, or in how one package tests it?
-- _which tag_ — narrow to a service, or a kind of test
+- _which tag_ (`scope`) — narrow to a service, or a kind of test
+- _a second tag_ (`tag`) — only the tests carrying both, such as the `@flow`
+  tests of one service
 - _how many workers_ — drop to `1` to see whether a failure is a real defect or
   a race between parallel tests
 
@@ -292,10 +294,12 @@ reporting job.
    it wanted was _on_ that page. Under enough parallelism it was not.
 
 4. **Break the mock deliberately.** If a test is suspected of being vacuous,
-   remove the behaviour it targets and confirm it goes red. Two tests in this
-   repo passed while testing nothing: one was found by breaking the mock, the
-   other by breaking the shared assertion helper — see
-   [test-strategy.md](test-strategy.md#two-gaps-that-were-found-by-asking-this-question).
+   remove the behaviour it targets and confirm it goes red. Three tests in
+   this repo passed while testing nothing: two were found by breaking the mock,
+   one by breaking the shared assertion helper — see
+   [test-strategy.md](test-strategy.md#two-gaps-that-were-found-by-asking-this-question)
+   and, for "should advance updatedAt",
+   [triage.md](triage.md#oracles-for-values-that-legitimately-vary).
 
 Steps 2 and 3 are cheap because the suite carries its own backend: reproducing
 a CI failure locally needs no environment access.
