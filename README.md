@@ -53,7 +53,7 @@ run within a minute, and CI should need no secrets.
 ```bash
 pnpm test:functional   # one package only
 pnpm test:class
-pnpm verify            # everything CI runs: format, lint, types, tests, parity
+pnpm verify            # everything CI runs: format, lint, types, tests, parity, failures
 ```
 
 ## Layout
@@ -114,8 +114,8 @@ infrastructure, which is why the dashboard is not in it. The detail is in
 That dashboard now dispatches a **second** suite as well —
 `playwright-ui-automation-patterns`, the same question asked of browser tests —
 and it meets it at the same three points. The two suites' workflows therefore
-declare the same four inputs, because GitHub rejects a dispatch carrying an
-input a workflow does not declare.
+declare the same five inputs (`style`, `scope`, `tag`, `workers`, `run_id`),
+because GitHub rejects a dispatch carrying an input a workflow does not declare.
 
 ## License
 
