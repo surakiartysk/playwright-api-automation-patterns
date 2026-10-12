@@ -356,7 +356,12 @@ abstracting. Decision 8's rule says when to look, not that every third copy
 must go.
 
 **A gate on the repo's own claim.** `ci` also runs `check:parity`, which fails if
-the two suites stop covering the same number of behaviours. The comparison this
+the two suites stop covering the same behaviours: first the same number, and
+then the same titles. (The count alone was the first version, and one commit that
+removed a test from a package and added another left it green; comparing titles
+found two that had drifted apart by a few words, and two that differ on purpose
+because the styles give them different helpers, which the script names with the
+reason. It also compares each test's set of tags, which the per-tag counts could not: a tag on a test in one package only is a difference too. Five mutations, all red: a title renamed in one package, a test swapped for another with the count unchanged, a tag on one package's test only, a listed difference that is no longer one, and a real difference left unexplained. Cost: a rename in one package is red until the other follows.) The comparison this
 repo is built on only means something if neither side is quietly better tested,
 and that has already gone wrong once — `class-style` was missing two
 authentication cases. An argument that depends on a property should have that

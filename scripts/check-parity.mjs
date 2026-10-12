@@ -21,6 +21,19 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 const PACKAGES = ['functional-style', 'class-style']
 
+/**
+ * A test as the parity check knows it: its title, then its tags sorted.
+ *
+ * Tags are options (`{ tag: '@smoke' }`) and a group's reach its tests, so the title alone
+ * does not carry them; Playwright's JSON list gives each spec its full set, without the `@`,
+ * and a group nested in a group with the same tag lists it twice, so the set is what is compared.
+ */
+const testKey = (spec) =>
+  `${spec.title} ${[...new Set(spec.tags ?? [])]
+    .sort()
+    .map((t) => `@${t}`)
+    .join(' ')}`.trim()
+
 /** Test titles reported by Playwright's list reporter, one per line. */
 function listTests(pkg) {
   const raw = execFileSync('pnpm', ['exec', 'playwright', 'test', '--list', '--reporter=json'], {
@@ -34,7 +47,7 @@ function listTests(pkg) {
 
   const walk = (suites) => {
     for (const suite of suites ?? []) {
-      for (const spec of suite.specs ?? []) titles.push(spec.title)
+      for (const spec of suite.specs ?? []) titles.push(testKey(spec))
       walk(suite.suites)
     }
   }
@@ -61,6 +74,92 @@ if (counts[a].length !== counts[b].length) {
 }
 
 console.log('\n✓ check:parity — both suites cover the same number of behaviours')
+
+/**
+ * The same count is not the same tests.
+ *
+ * One commit that removes a test from a package and adds another leaves every
+ * total unchanged, so the count above cannot see it, and neither can the count
+ * documented below. This compares the titles themselves: each package's list,
+ * as a multiset (two tests may share a title in different groups), must be the
+ * other's.
+ *
+ * Each test is compared by its own title and its tags (the full set, so a tag on one
+ * package's test and not the other's is a difference too, which the count of tags per
+ * package could not show), and not by the group it sits in: the groups are named for the style (`BaseValidator` in one,
+ * `ResponseAssert` in the other) and are meant to differ.
+ *
+ * The cost: renaming a test in one package turns this red until the other is
+ * renamed too, which is the point, and it is how two titles that had drifted
+ * apart by a few words were found. Where the two packages really test different
+ * things, because the style gives them different helpers, the pair is named
+ * below with the reason, and an entry that no longer matches anything is itself
+ * an error, so the list cannot outlive what it excuses.
+ */
+const DIFFERENT_ON_PURPOSE = [
+  {
+    functional: 'should accept a well-formed success response',
+    class: 'should return the payload of a well-formed response',
+    why: '`BaseValidator.expectSuccess` asserts and returns nothing; `ResponseAssert.payload` returns the parsed payload. Different helpers, so different tests of them.',
+  },
+  {
+    functional: 'should accept a well-formed error response',
+    class: 'should return the envelope of a well-formed error',
+    why: 'Same pair for errors: `expectError` asserts, `ResponseAssert.envelope` returns.',
+  },
+]
+
+const tally = (titles) => titles.reduce((m, t) => m.set(t, (m.get(t) ?? 0) + 1), new Map())
+const onlyIn = (x, y) =>
+  [...x].flatMap(([title, n]) => Array(Math.max(0, n - (y.get(title) ?? 0))).fill(title))
+
+const inA = tally(counts[a])
+const inB = tally(counts[b])
+const missingFrom = { [a]: onlyIn(inB, inA), [b]: onlyIn(inA, inB) }
+
+const titleOf = (key) => key.replace(/(?: @[\w-]+)+$/, '')
+const tagsOf = (key) => key.slice(titleOf(key).length)
+
+const excused = { [a]: new Set(), [b]: new Set() }
+const staleExcuses = []
+for (const pair of DIFFERENT_ON_PURPOSE) {
+  // Both must still be unmatched, and carry the same tags: a pair that differs in what it
+  // is tagged is not the difference that was written down.
+  const f = missingFrom[b].find((k) => titleOf(k) === pair.functional)
+  const c = missingFrom[a].find((k) => titleOf(k) === pair.class)
+  if (f !== undefined && c !== undefined && tagsOf(f) === tagsOf(c)) {
+    excused[b].add(f)
+    excused[a].add(c)
+  } else {
+    staleExcuses.push(pair)
+  }
+}
+const unmatched = {
+  [a]: missingFrom[b].filter((t) => !excused[b].has(t)),
+  [b]: missingFrom[a].filter((t) => !excused[a].has(t)),
+}
+
+if (unmatched[a].length + unmatched[b].length > 0 || staleExcuses.length > 0) {
+  console.error(
+    '\n✖ check:parity — the two suites have the same number of tests, not the same tests.\n',
+  )
+  for (const t of unmatched[a]) console.error(`  only in ${a}: ${t}`)
+  for (const t of unmatched[b]) console.error(`  only in ${b}: ${t}`)
+  for (const pair of staleExcuses) {
+    console.error(
+      `  listed as different on purpose, but no longer: "${pair.functional}" / "${pair.class}"`,
+    )
+  }
+  console.error(
+    '\nGive the test the same title and tags in both, or — if the style really gives it a',
+  )
+  console.error('different helper — add the pair to DIFFERENT_ON_PURPOSE with the reason.\n')
+  process.exit(1)
+}
+
+console.log(
+  `✓ check:parity — every test, by title and tags, is in both suites (${DIFFERENT_ON_PURPOSE.length} pairs differ on purpose, with reasons)`,
+)
 
 /**
  * A skipped test is not a covered behaviour, but Playwright still lists it —

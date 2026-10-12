@@ -115,9 +115,11 @@ Two details worth knowing:
 - **`scheduled` installs without `--frozen-lockfile` on purpose.** Every other
   workflow pins for reproducibility; that one resolves fresh because catching a
   dependency that broke us is the entire reason it exists.
-- **`ci` runs `check:parity`.** Both suites must cover the same number of
-  behaviours, or the comparison in [docs/comparison.md](docs/comparison.md) is
-  not a fair one — and run them: Playwright lists a skipped test like any
+- **`ci` runs `check:parity`.** Both suites must cover the same behaviours — the
+  same number, and the same test titles and tags, a rename in one package failing the
+  check until the other follows (two pairs that really test different helpers
+  are named in the script, with the reason) — or the comparison in
+  [docs/comparison.md](docs/comparison.md) is not a fair one — and run them: Playwright lists a skipped test like any
   other, so any `test.skip`, `test.fixme` or `test.fail` in a spec fails the
   check. It also holds the documented counts, the tag table, and
   `on-demand.yml`'s scope list against the suite itself — a tag that no
