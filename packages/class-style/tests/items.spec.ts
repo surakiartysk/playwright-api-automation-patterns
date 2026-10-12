@@ -32,7 +32,9 @@ test.describe('items', { tag: ['@items', '@isolated'] }, () => {
       },
     )
 
-    test('should default conditionNote to an empty string', async ({ itemsAsStaff }) => {
+    test('should default conditionNote to an empty string when omitted', async ({
+      itemsAsStaff,
+    }) => {
       const item = await itemsAsStaff.provision()
 
       expect(item.conditionNote).toBe('')
@@ -466,7 +468,7 @@ test.describe('items', { tag: ['@items', '@isolated'] }, () => {
       },
     )
 
-    test('should surface retired items when asked explicitly', async ({
+    test('should surface retired items when asked for explicitly', async ({
       itemsAsStaff,
       itemsAsAdmin,
     }) => {
