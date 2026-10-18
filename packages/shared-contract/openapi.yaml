@@ -78,13 +78,8 @@ paths:
       summary: List items
       operationId: listItems
       parameters:
-        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
-        - name: pageSize
-          in: query
-          description: |
-            Capped, not refused: a value above 100 is served as 100, and
-            `pagination.pageSize` in the response says what was used.
-          schema: { type: integer, minimum: 1, default: 20 }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
         - { name: category, in: query, schema: { $ref: '#/components/schemas/ItemCategory' } }
         - { name: status, in: query, schema: { $ref: '#/components/schemas/ItemStatus' } }
         # Exact-match lookup. A list endpoint with no way to ask for one known
@@ -382,6 +377,8 @@ paths:
         - { name: reservationId, in: query, schema: { type: string } }
         - { name: itemId, in: query, schema: { type: string } }
         - { name: state, in: query, schema: { $ref: '#/components/schemas/MaintenanceState' } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
           description: Matching logs
@@ -470,6 +467,25 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+  parameters:
+    # Shared by every list endpoint, so the paging rules are written once. The
+    # response always carries `pagination`, which says what was actually used.
+    Page:
+      name: page
+      in: query
+      description: |
+        1-based. Never refused: a value below 1, or one that is not a number, is
+        served as page 1. A page past the end is a 200 with an empty list.
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      description: |
+        Capped, not refused: a value above 100 is served as 100. Never a 422
+        either: a value that is not a number, or `0`, is served as the default
+        of 20, and a negative value is served as 1.
+      schema: { type: integer, minimum: 1, default: 20 }
 
   responses:
     Unauthorized:
@@ -592,7 +608,12 @@ components:
       type: object
       required: [email, password]
       properties:
-        email: { type: string, format: email }
+        email:
+          type: string
+          format: email
+          description: |
+            Not checked for shape: any string is accepted, and an address that is
+            not an email simply matches no account, so the answer is 401, not 422.
         password: { type: string, minLength: 8 }
       additionalProperties: false
 
@@ -678,12 +699,19 @@ components:
             so it cannot change silently.
         category: { $ref: '#/components/schemas/ItemCategory' }
         dailyRateCents: { type: integer, minimum: 0 }
-        conditionNote: { type: string, maxLength: 280 }
+        conditionNote:
+          type: string
+          maxLength: 280
+          description: 'Optional. `null` is treated as not sent, and the note is stored as `""`.'
       additionalProperties: false
 
     UpdateItemRequest:
       type: object
       minProperties: 1
+      description: |
+        A property sent as `null` is treated as not sent: the field is left
+        unchanged, and the property still counts toward `minProperties`, so
+        `{"name": null}` is a 200 that changes nothing.
       properties:
         name: { type: string, minLength: 3, maxLength: 80 }
         category: { $ref: '#/components/schemas/ItemCategory' }
@@ -731,11 +759,18 @@ components:
       required: [itemId, startDate, endDate]
       properties:
         itemId: { type: string }
-        startDate: { type: string, format: date }
+        startDate:
+          type: string
+          format: date
+          description: |
+            Only the shape `YYYY-MM-DD` is checked, not that the day exists:
+            `2026-02-30` is accepted and echoed back unchanged.
         endDate:
           type: string
           format: date
-          description: 'Must be on or after `startDate`, else 422 naming `endDate`.'
+          description: |
+            Shape checked as for `startDate`. Must be on or after `startDate`
+            (compared as text), else 422 naming `endDate`.
       additionalProperties: false
 
     TransitionRequest:
@@ -743,7 +778,10 @@ components:
       required: [action]
       properties:
         action: { $ref: '#/components/schemas/TransitionAction' }
-        note: { type: string, maxLength: 280 }
+        note:
+          type: string
+          maxLength: 280
+          description: 'Optional. `null` is treated as not sent. Not stored on the reservation.'
       additionalProperties: false
 
     # ── maintenance logs ─────────────────────────────────────────────────────
