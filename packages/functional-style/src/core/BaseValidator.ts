@@ -45,7 +45,9 @@ export class BaseValidator {
       true,
     )
 
-    return (parsed.success ? parsed.data.data : undefined) as z.infer<S>
+    // Zod 4 cannot tell whether a generic `data` key is optional, so it hides
+    // the key from the inferred type. The schema above requires it.
+    return (parsed.success ? (parsed.data as { data: unknown }).data : undefined) as z.infer<S>
   }
 
   /**
@@ -113,7 +115,7 @@ export class BaseValidator {
   }
 }
 
-function formatIssues(result: z.SafeParseReturnType<unknown, unknown>): string {
+function formatIssues(result: z.ZodSafeParseResult<unknown>): string {
   if (result.success) return ''
   return result.error.issues
     .map((issue) => `  • ${issue.path.join('.') || '(root)'}: ${issue.message}`)
