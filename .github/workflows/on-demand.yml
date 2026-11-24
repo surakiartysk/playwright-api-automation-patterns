@@ -2,7 +2,7 @@ name: On-demand
 
 # Run a chosen slice of the suite, without pushing anything.
 #
-# Two ways in:
+# Three ways in:
 #
 # 1. `workflow_dispatch` — a human picks a style and a scope from the Actions
 #    tab. What you reach for when triaging "is this service red, or is it just
@@ -18,7 +18,16 @@ name: On-demand
 #
 #    Here it has nothing external to point at — the mock ships with the repo —
 #    so it exists to show the wiring, and it is honest about that.
+#
+# 3. `schedule` — once a day the whole suite runs and reports to the run
+#    dashboard as a CI run. The dashboard is a demo now and starts nothing
+#    real, so this is how its history keeps getting real results — see
+#    decision 12. `report_as_ci` starts the same run by hand.
 on:
+  schedule:
+    # 02:00 UTC daily. The UI suite reports at 02:30, so the two never race
+    # for the same minute of the dashboard's history.
+    - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
       style:
@@ -50,10 +59,15 @@ on:
         default: '4'
         type: string
       run_id:
-        description: 'Caller run id. Set by the dashboard; leave blank when running by hand.'
+        description: 'Caller run id. Leave blank when running by hand.'
         required: false
         default: ''
         type: string
+      report_as_ci:
+        description: 'Report to the dashboard as the daily run does: runs everything, ignoring style, scope and tag'
+        required: false
+        default: false
+        type: boolean
 
   repository_dispatch:
     types: [run-tests]
@@ -67,7 +81,7 @@ permissions:
 
 jobs:
   run:
-    name: ${{ github.event.inputs.style || 'both' }} / @${{ github.event.inputs.scope || 'smoke' }}${{ (github.event.inputs.tag && github.event.inputs.tag != 'all') && format(' + @{0}', github.event.inputs.tag) || '' }}
+    name: ${{ (github.event_name == 'schedule' || github.event.inputs.report_as_ci == 'true') && 'both / all, reported to the dashboard' || format('{0} / @{1}{2}', github.event.inputs.style || 'both', github.event.inputs.scope || 'smoke', (github.event.inputs.tag && github.event.inputs.tag != 'all') && format(' + @{0}', github.event.inputs.tag) || '') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -94,6 +108,18 @@ jobs:
           TAG="${{ github.event.inputs.tag || github.event.client_payload.tag || 'all' }}"
           WORKERS="${{ github.event.inputs.workers || github.event.client_payload.workers || '4' }}"
           RUN_ID="${{ github.event.inputs.run_id || github.event.client_payload.run_id || '' }}"
+
+          # The daily run, or one started by hand to stand in for it, reports to
+          # the dashboard as a CI run (decision 12). Nothing hands it an id —
+          # the dashboard dispatches nothing — so it makes one from this
+          # workflow run, which is unique per attempt and says where it came
+          # from. The dashboard refuses an id it already holds, so a re-run
+          # needs the attempt in it to be recorded at all.
+          CI_REPORT="${{ github.event_name == 'schedule' || github.event.inputs.report_as_ci == 'true' }}"
+          if [ "$CI_REPORT" = "true" ]; then
+            STYLE=both SCOPE=all TAG=all
+            RUN_ID="ci-api-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          fi
 
           # What to grep for, as a pattern rather than as flags: the pattern
           # for two tags contains parentheses, which the shell would read as
@@ -142,6 +168,7 @@ jobs:
           echo "filter=$FILTER"   >> "$GITHUB_OUTPUT"
           echo "workers=$WORKERS" >> "$GITHUB_OUTPUT"
           echo "run_id=$RUN_ID"   >> "$GITHUB_OUTPUT"
+          echo "ci_report=$CI_REPORT" >> "$GITHUB_OUTPUT"
           echo "Running $STYLE with scope @$SCOPE, tag $TAG, on $WORKERS workers"
 
       - name: Run tests
@@ -290,6 +317,8 @@ jobs:
           # readable one — they answer "which commit?" and "which release?",
           # which are different questions.
           SUITE_SHA: ${{ github.sha }}
+          CI_REPORT: ${{ steps.opts.outputs.ci_report }}
+          REF: ${{ github.ref_name }}
         run: |
           SUITE_VERSION=$(node -p "require('./package.json').version")
           export SUITE_VERSION
@@ -323,6 +352,11 @@ jobs:
               // rather than claiming a report that is not.
               ...(process.env.REPORT_PATH ? { reportPath: process.env.REPORT_PATH } : {}),
               workflowUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+              // What ran, for a run the dashboard has no row for yet: with
+              // these it records a new real run instead of answering 404.
+              ...(process.env.CI_REPORT === "true"
+                ? { suite: "api", service: "all", tags: "all", ref: process.env.REF }
+                : {}),
             }))
           ')
 

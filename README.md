@@ -12,12 +12,13 @@ defects — 118 tests each, verified by mutating the mock and checking that both
 suites fail identically.
 
 Part of [testbydesign.dev](https://testbydesign.dev): the
-[Test Run Dashboard](https://runs.testbydesign.dev) dispatches this suite on demand.
+[Test Run Dashboard](https://runs.testbydesign.dev) shows this suite's daily run.
+The dashboard itself is a demo and starts nothing real; the results are.
 
 **Version 1.0.0** — complete against `openapi.yaml`, the contract that arbitrates
-both packages. Every run reports this version and its commit sha back to the
-dashboard that dispatched it, so a result months old can still be traced to the
-exact tree that produced it.
+both packages. Every run that reports to the dashboard carries this version and
+its commit sha, so a result months old can still be traced to the exact tree
+that produced it.
 
 The interesting part is not that they pass. It is **why each is shaped the way it
 is** — start with [`docs/decisions.md`](docs/decisions.md) if you have five
@@ -100,22 +101,22 @@ separately:
 
 **[`playwright-run-dashboard`](https://github.com/surakiartysk/playwright-run-dashboard)** — self-service test
 running: a developer picks a slice, presses Run, and gets a link to the report
-without waiting on anyone. Four roles — including a `demo` role that can never
-trigger a real run, which is why its password is safe to publish — and the
-authorisation that makes self-service safe.
+without waiting on anyone, and the authorisation that makes self-service safe.
+It is built as a demo: every visitor gets a sandbox of their own, with roles,
+an admin page and an audit log, and every run started there is simulated. What
+is real is this suite's results — once a day `on-demand.yml` runs everything
+and reports it to the dashboard as a CI run
+([decision 12](docs/decisions.md#12-a-daily-run-reports-to-the-dashboard-because-the-dashboard-dispatches-nothing)).
 
-They meet at exactly three points, and share no code: that dashboard
-dispatches this repo's `on-demand.yml`, this repo's workflow uploads its merged
-Allure report into the dashboard's storage, and then posts its result back to
+They meet at two points, and share no code: this repo's workflow uploads its
+merged Allure report into the dashboard's storage, and then posts its result to
 its `/webhook`. Nothing else is shared — this repo stays clonable with no
 infrastructure, which is why the dashboard is not in it. The detail is in
 [qa-workflow.md](docs/qa-workflow.md#triggering-it-from-somewhere-else).
 
-That dashboard now dispatches a **second** suite as well —
+The same dashboard receives a **second** suite's daily run —
 `playwright-ui-automation-patterns`, the same question asked of browser tests —
-and it meets it at the same three points. The two suites' workflows therefore
-declare the same five inputs (`style`, `scope`, `tag`, `workers`, `run_id`),
-because GitHub rejects a dispatch carrying an input a workflow does not declare.
+at the same two points.
 
 ## License
 

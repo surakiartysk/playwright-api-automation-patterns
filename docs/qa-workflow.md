@@ -48,12 +48,13 @@ they are separate workflows rather than one with branching.
 | QA investigating | Actions tab → **On-demand** | "Is this _service_ red, or just that one spec?"                    |
 | Deploy pipeline  | `repository_dispatch`       | "The environment is up — verify it"                                |
 | Nobody           | weekly cron                 | "Has anything rotted while we were not looking?"                   |
+| Nobody           | daily cron (`on-demand`)    | The full suite, reported to the run dashboard as a CI run          |
 
 ### The self-service part
 
-The **On-demand** workflow takes five inputs: which style, which tag, an
-optional second tag, how many workers, and a caller's run id. The first four are
-the questions asked during triage:
+The **On-demand** workflow takes six inputs: which style, which tag, an
+optional second tag, how many workers, a caller's run id, and whether to report
+as the daily run does. The first four are the questions asked during triage:
 
 - _which style_ — is this a bug in the API, or in how one package tests it?
 - _which tag_ (`scope`) — narrow to a service, or a kind of test
@@ -63,10 +64,12 @@ the questions asked during triage:
   a race between parallel tests
 
 `run_id` is not a triage question at all: it is how a caller names the run it
-is waiting for, and it is blank when a person starts one by hand. It is
-declared here because the dashboard sends it, and GitHub rejects a dispatch
+is waiting for, and it is blank when a person starts one by hand. It was
+declared because the run dashboard sent it, and GitHub rejects a dispatch
 carrying an input a workflow does not declare — see
-[the contract below](#triggering-it-from-somewhere-else).
+[the contract below](#triggering-it-from-somewhere-else). `report_as_ci` starts
+the daily run by hand: everything, reported to the dashboard as a CI run
+([decision 12](decisions.md#12-a-daily-run-reports-to-the-dashboard-because-the-dashboard-dispatches-nothing)).
 
 Anyone with repository access can run it from the Actions tab. No local setup,
 no asking QA to run something.
@@ -100,40 +103,39 @@ express "may run smoke against `main`, and nothing else". The moment you want
 that sentence enforced, you need something between the person and GitHub that
 holds the single token and applies its own rules to each request.
 
-That something is the companion dashboard below. It holds one `GITHUB_TOKEN`
-server-side, authenticates people separately, and applies the per-role rules
+That something was the companion dashboard below. It held one `GITHUB_TOKEN`
+server-side, authenticated people separately, and applied the per-role rules
 GitHub cannot — which branches, how many workers, and whether runs are open
-right now. No developer ever holds a credential that can reach Actions.
-
-**A pipeline** is the case that does want a key, and it is a different key. Not
-a GitHub token handed to a developer, but one the dashboard issues and whose
-authority it defines: limited to the branches and workers the dashboard allows
-it, revocable in one place, and attributable in the run history. A deploy job
-then verifies its own environment the moment it finishes, with nobody watching.
-
-That is built. `POST /runs` accepts `Authorization: Bearer <key>` alongside a
-session, a key resolves to a role before any handler runs, and every rule the
-dashboard already had — which branches, how many workers, whether runs are open
-right now — applies to it unchanged. A key may narrow what its role allows and
-can never widen it. The reasoning, and the authorisation bug that building it
-exposed, are in the dashboard's
+right now — so no developer ever held a credential that could reach Actions. A
+pipeline got a key the dashboard issued rather than a GitHub token: limited to
+what its role allowed, revocable in one place, and attributable in the run
+history. The reasoning, and the authorisation bug that building it exposed, are
+in the dashboard's
 [decision 15](https://github.com/surakiartysk/playwright-run-dashboard/blob/main/docs/decisions.md#15-machine-keys-the-dashboard-issues-not-github-tokens-it-hands-out).
 
-**Scheduled runs** need no key at all: `scheduled.yml` runs weekly on cron, and
-carries a `workflow_dispatch` trigger so the same job can be started by hand
-without waiting for Monday. It exists to catch decay rather than regressions —
-see the reasoning in that file.
+The dashboard has since become a demo (its decision 52). It holds no GitHub
+token and dispatches nothing: the roles, the rules and the keys still work, but
+inside a sandbox each visitor gets, on runs that are simulated. Nothing started
+there reaches this repository.
 
-So the honest summary: cron for decay, the dashboard for people, and a key the
-dashboard issues for machines. `repository_dispatch` with a scoped GitHub token
-remains the way in for anything that never talks to the dashboard at all.
+**Scheduled runs** need no key at all, and there are two. `scheduled.yml` runs
+weekly with dependencies resolved fresh, and carries a `workflow_dispatch`
+trigger so the same job can be started by hand without waiting for Monday. It
+exists to catch decay rather than regressions — see the reasoning in that file.
+`on-demand.yml` runs the whole suite daily against the lockfile and reports it
+to the dashboard as a CI run, which is how the dashboard's history stays real —
+see [decision 12](decisions.md#12-a-daily-run-reports-to-the-dashboard-because-the-dashboard-dispatches-nothing).
+
+So the honest summary: cron for decay, a daily run for the record, and
+`repository_dispatch` with a scoped GitHub token for anything else that has to
+start a run.
 
 ## What this repo does _not_ have, and where it lives instead
 
 Being explicit, because the boundary is the interesting part.
 
 The self-service piece is a small dashboard rather than the GitHub Actions UI —
-published separately as the run dashboard:
+published separately as the run dashboard. It was built to work like this:
 
 - a developer picks a suite and a slice to run from a web page and presses
   **Run**
@@ -151,72 +153,75 @@ removes that.
 **None of that is in this repository**, and deliberately so: a dashboard needs
 hosting, a database, and secrets, while this repo's first promise is that a
 stranger can clone it and run everything with none of those. The
-`repository_dispatch` trigger in `on-demand.yml` is the seam it attaches to.
+`repository_dispatch` trigger in `on-demand.yml` is the seam it attached to.
 
 It is published as a **companion repository** instead, built the same way and
 for the same reason:
 
 **[`playwright-run-dashboard`](https://github.com/surakiartysk/playwright-run-dashboard)**
-— the trigger → run → report flow, with four roles and the authorisation that
-makes self-service safe. Its interesting question is not the Run button but
-_who may run what, against which branch, and who may then see the result_.
+— the trigger → run → report flow, with roles and the authorisation that makes
+self-service safe. Its interesting question is not the Run button but _who may
+run what, against which branch, and who may then see the result_. It is now a
+demo throughout: the Run button starts a simulated run in the visitor's own
+sandbox, and the second step above triggers nothing.
 
-It dispatches **two** suites: this one, and
-`playwright-ui-automation-patterns`, which asks the same question of browser
-tests. Each meets the dashboard at the same three points described below, and
-both workflows declare the same five input names — `style`, `scope`, `tag`,
-`workers` and `run_id`. That is a contract rather than a coincidence: GitHub rejects a
-dispatch carrying an input a workflow does not declare, and rejects the whole
-request rather than ignoring the extra, so a caller that branched per suite
-would be a second thing to keep in step.
+What it shows that is real is two suites' results: this one's, and
+`playwright-ui-automation-patterns`', which asks the same question of browser
+tests. Both workflows still declare the same five input names — `style`,
+`scope`, `tag`, `workers` and `run_id` — from when the dashboard dispatched
+them. That was a contract rather than a coincidence: GitHub rejects a dispatch
+carrying an input a workflow does not declare, and rejects the whole request
+rather than ignoring the extra, so a caller that branched per suite would have
+been a second thing to keep in step.
 
 What differs is what the inputs _mean_. Here `scope` is a tag. In the UI suite
 it names a spec file, because those journeys are grouped by file — so
-`--grep @auth` there would match nothing, which Playwright reports as a
-**success with zero tests**.
+`--grep @auth` there would match nothing, which Playwright fails with
+"No tests found".
 
 `tag` is optional and narrows `scope`: with both set, the run is the tests
 carrying both tags (`items` and `smoke` is the three smoke tests of the items
-service). It defaults to `all`, which adds nothing, so a caller that never heard
-of it dispatches exactly what it did before. A pair that no test carries — `items`
-and `flow`, say — matches nothing, and Playwright fails the run with "No tests
-found" rather than passing it.
+service). It defaults to `all`, which adds nothing. A pair that no test
+carries — `items` and `flow`, say — matches nothing, and Playwright fails the
+run with "No tests found" rather than passing it.
 
-They meet at exactly three points, and share no code:
+They meet at two points now, and share no code:
 
-1. **Dispatch.** The dashboard calls `on-demand.yml` with `run_id`, `scope`
-   (the service, or a tag), optionally `tag`, `style`, and `workers`. Those are this workflow's
-   input names, not the dashboard's vocabulary, and they do not line up — a
-   service goes in `scope`, because `style` selects a package.
-2. **Report upload.** The merged Allure report is written straight into the
+1. **Report upload.** The merged Allure report is written straight into the
    dashboard's R2 bucket under `runs/{run_id}/`, using a token scoped to that
    one bucket. Uploading directly rather than POSTing several megabytes
    through the dashboard keeps a body-size limit, a multipart parser and a
    signing scheme over unbufferable input out of the API entirely — see the
    dashboard's decision 14.
-3. **Callback.** When the run finishes, the workflow posts totals back, signed
+2. **Callback.** When the run finishes, the workflow posts totals back, signed
    over `timestamp.body` with a shared secret, whether the suite passed or
-   failed. A red run that never reports leaves a dashboard stuck on "running".
-   It runs _after_ the upload and only claims `reportPath` if that succeeded:
-   the dashboard trusts the field, so a path pointing at nothing is a report
-   link that 404s. When tests failed it also carries _which_: up to twenty, each
-   with its title, file, tags and the first line of its message (cut, and without
-   terminal colour), plus how many were left out. `.github/scripts/failures.mjs`
-   reads it from the same `results.json` as the totals, and `check:failures`
-   holds it against fixtures shaped like Playwright's output.
+   failed. It runs _after_ the upload and only claims `reportPath` if that
+   succeeded: the dashboard trusts the field, so a path pointing at nothing is
+   a report link that 404s. When tests failed it also carries _which_: up to
+   twenty, each with its title, file, tags and the first line of its message
+   (cut, and without terminal colour), plus how many were left out.
+   `.github/scripts/failures.mjs` reads it from the same `results.json` as the
+   totals, and `check:failures` holds it against fixtures shaped like
+   Playwright's output. The daily run, which the dashboard did not start, also
+   sends `suite`, `service`, `tags` and `ref`; with them the dashboard records a
+   new real run instead of answering 404.
 
-All three are inert here by default: they are skipped unless `run_id` is set
-_and_ `DASHBOARD_WEBHOOK_URL` is configured, so a hand-started run — or a fork
-with neither — behaves exactly as it did before. A failed upload is
-`continue-on-error`: the run's numbers still reach the dashboard, it just does
-not claim a report.
+Dispatch was the third point: the dashboard called `on-demand.yml` with
+`run_id`, `scope` (the service, or a tag), `tag`, `style` and `workers`. It no
+longer does.
 
-**This is a contract that nothing in either repo enforces at compile time**, and
-it had already broken: the dashboard was sending a service name in `style`,
-which accepts three package names and nothing else, so every dispatch would have
-been rejected. Both repos' documentation said the integration worked. It is now
-covered by tests on the dashboard side that pin this workflow's accepted values,
-so the next drift fails a suite rather than a deployment.
+Both are inert here by default: they are skipped unless the run has an id —
+passed by a caller, or made by the daily run — _and_ `DASHBOARD_WEBHOOK_URL` is
+configured, so a hand-started run, or a fork with neither, behaves exactly as
+it did before. A failed upload is `continue-on-error`: the run's numbers still
+reach the dashboard, it just does not claim a report.
+
+**This was a contract that nothing in either repo enforced at compile time**,
+and it had broken once: the dashboard was sending a service name in `style`,
+which accepts three package names and nothing else, so every dispatch would
+have been rejected. Both repos' documentation said the integration worked.
+Tests on the dashboard side then pinned this workflow's accepted values; they
+went when the dispatch did.
 
 Keeping the repos separate is still what lets this one stay clonable with no
 infrastructure.
