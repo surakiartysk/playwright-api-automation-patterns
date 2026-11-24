@@ -319,6 +319,7 @@ question.
 | `pr-gate`   | pull request                   | Is this change obviously broken?               |
 | `ci`        | push to `main`                 | Is `main` actually green?                      |
 | `on-demand` | manual / `repository_dispatch` | What is wrong with _this_ slice?               |
+| `on-demand` | daily cron — decision 12       | What does the dashboard's record say?          |
 | `scheduled` | weekly cron                    | Has anything rotted while we were not looking? |
 
 **Reason, per workflow.**
@@ -411,6 +412,52 @@ one input rather than the answer. Not a problem at one repository.
 
 **Where.** `scripts/allure-report.mjs`, `src/utils/allure-meta.ts` (and its
 `class-style` twin), the reporter block in both `playwright.config.ts`.
+
+---
+
+## 12. A daily run reports to the dashboard, because the dashboard dispatches nothing
+
+**Context.** The run dashboard became a demo (its decision 52): every visitor
+gets a sandbox of their own, and every run started there is simulated. It no
+longer holds a GitHub token, so it cannot start this workflow. Real results
+reached it only as the answer to a dispatch — a callback for a run it had
+already created. Without dispatch nothing new would arrive, and its history
+would freeze on the last run anyone started.
+
+**Decision.** `on-demand.yml` also runs on a daily `schedule`: the whole suite,
+both packages, reported as a CI run. It makes its own id
+(`ci-api-<workflow run id>-<attempt>`) and adds `suite`, `service`, `tags` and
+`ref` to the callback, which is what the dashboard needs to record a run it did
+not start. The `report_as_ci` input starts the same run by hand, which is how it
+was first checked rather than by waiting a day.
+
+**Reason.** The same workflow rather than a new one, because the upload, the
+failure summary and the signed callback already live there, and a copy would be
+a second thing to keep in step. Daily, unlike `scheduled.yml`'s weekly run,
+because they answer different questions: that one resolves dependencies fresh to
+find decay, and a weekly cadence keeps its failure mail rare enough to be read.
+This one uses the lockfile and answers "does `main` pass today", for a dashboard
+where someone may be looking at the date of the newest run. The mock ships with
+the repo, so a daily run costs runner minutes and nothing else.
+
+**Trade-off.**
+
+- A red daily run fails the job, and GitHub mails the owner every day it stays
+  red — what decision 10 warns a daily job does: it trains its owner to ignore
+  the mail.
+  Acceptable only because this suite tests a mock that changes with the repo,
+  so a red day means a commit did it.
+- GitHub turns a schedule off in a public repository after 60 days without
+  activity. The dashboard's history then stops quietly; the only sign is the
+  date on its newest CI row.
+- The run is always everything, so the dashboard's CI rows never show a slice,
+  and `service` is always `all`.
+- The five dispatch inputs are no longer a contract anything calls. They stay:
+  removing them buys nothing and would break a caller written against them.
+
+**Where.** `.github/workflows/on-demand.yml` (the `schedule` trigger, the
+`report_as_ci` input, "Resolve inputs" and "Report the result"); the receiving
+side is `recordCiRun` in the dashboard's `routes/webhook.ts`.
 
 ---
 
