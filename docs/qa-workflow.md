@@ -185,7 +185,7 @@ service). It defaults to `all`, which adds nothing. A pair that no test
 carries — `items` and `flow`, say — matches nothing, and Playwright fails the
 run with "No tests found" rather than passing it.
 
-They meet at two points now, and share no code:
+They meet at exactly two points now, and share no code:
 
 1. **Report upload.** The merged Allure report is written straight into the
    dashboard's R2 bucket under `runs/{run_id}/`, using a token scoped to that

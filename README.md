@@ -108,7 +108,7 @@ is real is this suite's results — once a day `on-demand.yml` runs everything
 and reports it to the dashboard as a CI run
 ([decision 12](docs/decisions.md#12-a-daily-run-reports-to-the-dashboard-because-the-dashboard-dispatches-nothing)).
 
-They meet at two points, and share no code: this repo's workflow uploads its
+They meet at exactly two points, and share no code: this repo's workflow uploads its
 merged Allure report into the dashboard's storage, and then posts its result to
 its `/webhook`. Nothing else is shared — this repo stays clonable with no
 infrastructure, which is why the dashboard is not in it. The detail is in
